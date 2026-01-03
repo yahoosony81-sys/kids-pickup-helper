@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { LuShield, LuCheck, LuX, LuTriangleAlert } from "react-icons/lu";
 import Link from "next/link";
 
-interface UserData {
+interface ProfileData {
   id: string;
-  clerk_id: string;
-  name: string;
+  clerk_user_id: string;
   created_at: string;
+  updated_at: string;
 }
 
 export default function AuthTestPage() {
@@ -22,10 +22,8 @@ export default function AuthTestPage() {
     "idle" | "testing" | "success" | "error"
   >("idle");
   const [error, setError] = useState<string | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState("");
 
   // Supabase 연결 테스트
   const testConnection = useCallback(async () => {
@@ -33,101 +31,74 @@ export default function AuthTestPage() {
       setConnectionStatus("testing");
       setError(null);
 
-      // 간단한 쿼리로 연결 테스트
-      const { error } = await supabase.from("users").select("count");
+      // profiles 테이블로 연결 테스트
+      const { error } = await supabase.from("profiles").select("count");
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message || "연결 실패");
+      }
 
       setConnectionStatus("success");
     } catch (err) {
       setConnectionStatus("error");
-      setError(err instanceof Error ? err.message : "연결 테스트 실패");
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : typeof err === 'object' && err !== null && 'message' in err
+        ? String(err.message)
+        : "연결 테스트 실패";
+      setError(errorMessage);
       console.error("Connection test error:", err);
     }
   }, [supabase]);
 
-  // 사용자 데이터 가져오기 또는 생성
-  const fetchOrCreateUser = useCallback(async () => {
+  // Profile 데이터 가져오기
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      // 먼저 사용자 데이터 조회
+      // Profile 조회
       const { data, error: fetchError } = await supabase
-        .from("users")
+        .from("profiles")
         .select("*")
-        .eq("clerk_id", user.id)
+        .eq("clerk_user_id", user.id)
         .single();
 
-      if (fetchError && fetchError.code !== "PGRST116") {
-        throw fetchError;
-      }
-
-      // 사용자가 없으면 생성
-      if (!data) {
-        const userName =
-          user.fullName ||
-          [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-          user.emailAddresses[0]?.emailAddress.split("@")[0] ||
-          "익명";
-
-        const { data: newUser, error: createError } = await supabase
-          .from("users")
-          .insert({
-            clerk_id: user.id,
-            name: userName,
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        setUserData(newUser);
+      if (fetchError) {
+        // 404는 profile이 아직 생성되지 않은 경우 (정상)
+        if (fetchError.code === "PGRST116") {
+          setProfileData(null);
+          setError("Profile이 아직 생성되지 않았습니다. /api/sync-user를 통해 동기화하세요.");
+        } else {
+          throw new Error(fetchError.message || "Profile 조회 실패");
+        }
       } else {
-        setUserData(data);
+        setProfileData(data);
+        // 콘솔에 profile 정보 출력 (TODO.md 40번 항목 확인용)
+        console.log('✅ Profile 조회 성공:', data);
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "사용자 데이터 조회/생성 실패",
-      );
-      console.error("Fetch or create user error:", err);
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : typeof err === 'object' && err !== null && 'message' in err
+        ? String(err.message)
+        : "Profile 데이터 조회 실패";
+      setError(errorMessage);
+      console.error("Fetch profile error:", err);
     } finally {
       setLoading(false);
     }
   }, [user, supabase]);
 
-  // 이름 업데이트
-  const updateName = async () => {
-    if (!user || !newName.trim()) return;
-
-    try {
-      setError(null);
-
-      const { data, error: updateError } = await supabase
-        .from("users")
-        .update({ name: newName.trim() })
-        .eq("clerk_id", user.id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      setUserData(data);
-      setEditingName(false);
-      setNewName("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "이름 업데이트 실패");
-      console.error("Update name error:", err);
-    }
-  };
 
   useEffect(() => {
     if (isLoaded && user) {
       testConnection();
-      fetchOrCreateUser();
+      fetchProfile();
     }
-  }, [user, isLoaded, testConnection, fetchOrCreateUser]);
+  }, [user, isLoaded, testConnection, fetchProfile]);
 
   if (!isLoaded) {
     return (
@@ -179,10 +150,9 @@ export default function AuthTestPage() {
             <p className="text-xs text-red-600 mt-2">
               💡 <strong>해결 방법:</strong>
               <br />
-              1. Supabase Dashboard에서 <code>users</code> 테이블이 생성되었는지
-              확인
+              1. Supabase Dashboard에서 <code>profiles</code> 테이블이 생성되었는지 확인
               <br />
-              2. RLS 정책이 올바르게 설정되었는지 확인
+              2. /api/sync-user API가 정상 작동하는지 확인
               <br />
               3. Clerk와 Supabase 통합이 활성화되었는지 확인
             </p>
@@ -268,86 +238,52 @@ export default function AuthTestPage() {
         </div>
       </div>
 
-      {/* Supabase 사용자 데이터 */}
+      {/* Supabase Profile 데이터 */}
       <div className="border rounded-lg">
         <div className="p-6 border-b">
           <h2 className="text-2xl font-bold mb-2">
-            Supabase Users 테이블 데이터
+            Supabase Profiles 테이블 데이터
           </h2>
           <p className="text-sm text-gray-600">
-            Supabase의 users 테이블에 저장된 데이터입니다. RLS 정책에 따라
-            자신의 데이터만 조회/수정할 수 있습니다.
+            Supabase의 profiles 테이블에 저장된 데이터입니다.
           </p>
         </div>
 
         <div className="p-6">
           {loading ? (
             <div className="py-8 text-center text-gray-500">로딩 중...</div>
-          ) : userData ? (
+          ) : profileData ? (
             <div className="space-y-4">
               <div className="p-4 bg-white border rounded-lg">
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <span className="font-semibold min-w-[120px]">DB ID:</span>
                     <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                      {userData.id}
+                      {profileData.id}
                     </code>
                   </div>
                   <div className="flex gap-2">
                     <span className="font-semibold min-w-[120px]">
-                      Clerk ID:
+                      Clerk User ID:
                     </span>
                     <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                      {userData.clerk_id}
+                      {profileData.clerk_user_id}
                     </code>
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <span className="font-semibold min-w-[120px]">이름:</span>
-                    {editingName ? (
-                      <div className="flex gap-2 flex-1">
-                        <input
-                          type="text"
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          placeholder="새 이름 입력"
-                          className="flex-1 px-3 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <Button size="sm" onClick={updateName}>
-                          저장
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingName(false);
-                            setNewName("");
-                          }}
-                        >
-                          취소
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <span>{userData.name}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingName(true);
-                            setNewName(userData.name);
-                          }}
-                        >
-                          수정
-                        </Button>
-                      </>
-                    )}
                   </div>
                   <div className="flex gap-2">
                     <span className="font-semibold min-w-[120px]">
                       생성 시간:
                     </span>
                     <span className="text-sm">
-                      {new Date(userData.created_at).toLocaleString("ko-KR")}
+                      {new Date(profileData.created_at).toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-semibold min-w-[120px]">
+                      수정 시간:
+                    </span>
+                    <span className="text-sm">
+                      {new Date(profileData.updated_at).toLocaleString("ko-KR")}
                     </span>
                   </div>
                 </div>
@@ -355,7 +291,10 @@ export default function AuthTestPage() {
             </div>
           ) : (
             <div className="py-8 text-center text-gray-500">
-              <p>사용자 데이터가 없습니다.</p>
+              <p>Profile 데이터가 없습니다.</p>
+              <p className="text-xs mt-2">
+                페이지를 새로고침하면 /api/sync-user가 자동으로 호출되어 profile이 생성됩니다.
+              </p>
             </div>
           )}
         </div>
@@ -370,10 +309,9 @@ export default function AuthTestPage() {
             Clerk의 JWT 토큰을 Supabase에 전달합니다 (2025 네이티브 통합 방식)
           </li>
           <li>
-            처음 로그인 시 Supabase users 테이블에 사용자 레코드가 자동으로
-            생성됩니다
+            SyncUserProvider가 로그인 시 자동으로 /api/sync-user를 호출하여 profiles 테이블에 레코드를 생성합니다
           </li>
-          <li>각 사용자는 자신의 데이터만 조회/수정할 수 있습니다</li>
+          <li>각 사용자는 자신의 profile만 조회할 수 있습니다</li>
         </ul>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClientJS } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 
 /**
@@ -36,7 +36,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  return createClient(supabaseUrl, supabaseKey);
+  return createSupabaseClientJS(supabaseUrl, supabaseKey);
 }
 
 /**
@@ -81,7 +81,7 @@ export function createClerkSupabaseClient() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  return createClient(supabaseUrl, supabaseKey, {
+  return createSupabaseClientJS(supabaseUrl, supabaseKey, {
     async accessToken() {
       return (await auth()).getToken();
     },

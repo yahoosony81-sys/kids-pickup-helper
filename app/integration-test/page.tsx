@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LuCheck, LuX, LuLoader2, LuAlertCircle } from "react-icons/lu";
+import { Check, X, Loader2, AlertCircle } from "lucide-react";
 
 interface Task {
   id: number;
@@ -131,7 +131,7 @@ export default function IntegrationTestPage() {
     return (
       <div className="container mx-auto p-8">
         <div className="flex items-center justify-center min-h-[400px]">
-          <LuLoader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
@@ -167,12 +167,12 @@ export default function IntegrationTestPage() {
             <div className="flex items-center gap-2">
               {tokenInfo?.hasToken ? (
                 <>
-                  <LuCheck className="h-5 w-5 text-green-500" />
+                  <Check className="h-5 w-5 text-green-500" />
                   <span className="text-sm">Clerk 세션 토큰: 연결됨</span>
                 </>
               ) : (
                 <>
-                  <LuX className="h-5 w-5 text-red-500" />
+                  <X className="h-5 w-5 text-red-500" />
                   <span className="text-sm">Clerk 세션 토큰: 연결 안 됨</span>
                 </>
               )}
@@ -180,12 +180,12 @@ export default function IntegrationTestPage() {
             <div className="flex items-center gap-2">
               {user ? (
                 <>
-                  <LuCheck className="h-5 w-5 text-green-500" />
+                  <Check className="h-5 w-5 text-green-500" />
                   <span className="text-sm">Clerk 사용자: {user.emailAddresses[0]?.emailAddress || user.id}</span>
                 </>
               ) : (
                 <>
-                  <LuX className="h-5 w-5 text-red-500" />
+                  <X className="h-5 w-5 text-red-500" />
                   <span className="text-sm">Clerk 사용자: 없음</span>
                 </>
               )}
@@ -201,7 +201,7 @@ export default function IntegrationTestPage() {
           {error && (
             <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
               <div className="flex items-start gap-2">
-                <LuAlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-destructive">오류</p>
                   <p className="text-sm text-destructive/80 mt-1">{error}</p>
@@ -263,7 +263,7 @@ WITH CHECK (((SELECT auth.jwt()->>'sub') = user_id::text));`}
             <Button type="submit" disabled={loading || !taskName.trim()}>
               {loading ? (
                 <>
-                  <LuLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   추가 중...
                 </>
               ) : (
@@ -285,7 +285,7 @@ WITH CHECK (((SELECT auth.jwt()->>'sub') = user_id::text));`}
         <CardContent>
           {loading && tasks.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <LuLoader2 className="h-6 w-6 animate-spin text-primary" />
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : tasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

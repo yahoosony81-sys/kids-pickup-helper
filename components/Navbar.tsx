@@ -10,6 +10,11 @@ const Navbar = () => {
         SaaS Template
       </Link>
       <div className="flex gap-4 items-center">
+        <SignedIn>
+          <Link href="/pickup-requests">
+            <Button variant="ghost">픽업 요청</Button>
+          </Link>
+        </SignedIn>
         <SignedOut>
           <SignInButton mode="modal">
             <Button>로그인</Button>

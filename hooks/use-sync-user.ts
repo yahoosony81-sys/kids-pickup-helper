@@ -7,7 +7,18 @@ import { useEffect, useRef } from "react";
  * Clerk 사용자를 Supabase DB에 자동으로 동기화하는 훅
  *
  * 사용자가 로그인한 상태에서 이 훅을 사용하면
- * 자동으로 /api/sync-user를 호출하여 Supabase users 테이블에 사용자 정보를 저장합니다.
+ * 자동으로 /api/sync-user를 호출하여 Supabase profiles 테이블에 사용자 정보를 저장합니다.
+ *
+ * @file hooks/use-sync-user.ts
+ * @description Clerk → Supabase profiles 자동 동기화 훅
+ *
+ * 주요 기능:
+ * 1. Clerk 인증 상태 감지
+ * 2. 로그인 시 자동으로 /api/sync-user 호출
+ * 3. 중복 호출 방지 (syncedRef 사용)
+ *
+ * @dependencies
+ * - @clerk/nextjs: Clerk 클라이언트 인증
  *
  * @example
  * ```tsx
