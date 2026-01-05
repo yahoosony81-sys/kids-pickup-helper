@@ -150,25 +150,70 @@ ORDER BY created_at DESC;
 ## Phase 3: 제공자 Trip 생성 (trips)
 
 ### Task 3.1: Trip 생성 페이지 UI
-- [ ] `app/(routes)/trips/new/page.tsx` 생성
-- [ ] 제공자 전용 페이지 (권한 체크)
-- [ ] Trip 생성 폼 (최소 정보만, 초대는 별도 단계)
+- [x] `app/(routes)/trips/new/page.tsx` 생성
+- [x] 제공자 전용 페이지 (권한 체크)
+- [x] Trip 생성 폼 (최소 정보만, 초대는 별도 단계)
 - **완료 기준**: 제공자가 Trip 생성 페이지 접근 및 폼 표시
 
 ### Task 3.2: Trip 생성 Server Action
-- [ ] `actions/trips.ts` 생성
-- [ ] `createTrip` 함수 구현
+- [x] `actions/trips.ts` 생성
+- [x] `createTrip` 함수 구현
   - 현재 사용자 `profile_id` 조회
   - `trips` 테이블에 INSERT
   - `status = 'OPEN'`, `is_locked = false`, `capacity = 3` 기본값
 - **완료 기준**: Trip 생성 시 DB에 레코드 생성, `status = 'OPEN'` 확인
 
 ### Task 3.3: Trip 목록 조회
-- [ ] `app/(routes)/trips/page.tsx` 생성
-- [ ] `actions/trips.ts`에 `getMyTrips` 함수 추가
-- [ ] 현재 제공자의 Trip 목록 조회 (최신순)
-- [ ] 상태별 필터링 (`OPEN`, `IN_PROGRESS` 등)
+- [x] `app/(routes)/trips/page.tsx` 생성
+- [x] `actions/trips.ts`에 `getMyTrips` 함수 추가
+- [x] 현재 제공자의 Trip 목록 조회 (최신순)
+- [x] 상태별 필터링 (`OPEN`, `IN_PROGRESS` 등)
 - **완료 기준**: 내가 생성한 Trip 목록 화면에 표시
+
+---
+
+### Phase 3 Plan Mode Build 상세 작업 내역
+
+#### Server Actions 구현
+- [x] `actions/trips.ts` 생성
+- [x] `createTrip` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (clerk_user_id 기준)
+  - [x] DB INSERT (trips 테이블)
+  - [x] 기본값 설정: `status = 'OPEN'`, `is_locked = false`, `capacity = 3`
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 캐시 무효화 (revalidatePath)
+- [x] `getMyTrips` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회
+  - [x] DB SELECT (provider_profile_id 기준)
+  - [x] 최신순 정렬
+  - [x] 상태 필터링 파라미터 (선택사항)
+
+#### Trip 생성 페이지 UI
+- [x] `app/(routes)/trips/new/page.tsx` 생성
+- [x] Client Component로 구현
+- [x] 제공자 전용 페이지 표시 (UI에만 표시)
+- [x] 최소 정보만 입력 (초대는 별도 단계)
+- [x] "Trip 생성" 버튼 제공
+- [x] 제출 성공 시 Trip 목록 페이지로 리다이렉트
+- [x] `dynamic = 'force-dynamic'` 추가
+
+#### Trip 목록 페이지 UI
+- [x] `app/(routes)/trips/page.tsx` 생성
+- [x] Server Component로 구현
+- [x] `getMyTrips` 호출
+- [x] 카드 형태로 Trip 목록 표시
+- [x] 상태별 배지/색상 구분 (`OPEN`, `IN_PROGRESS`, `ARRIVED`, `COMPLETED`, `CANCELLED`)
+- [x] 각 Trip 정보 표시 (상태, 생성 시간, 수용 인원, LOCK 여부)
+- [x] 빈 목록 처리
+- [x] "새 Trip 생성" 버튼
+- [x] `dynamic = 'force-dynamic'` 추가
+
+#### 네비게이션
+- [x] Navbar에 "내 Trip" 링크 추가 (로그인 사용자만 표시)
+- [x] 목록 페이지에서 "새 Trip 생성" 버튼
+- [x] 생성 페이지에서 "취소" 버튼 (뒤로가기)
 
 ### Phase 3 실행 확인
 ```sql
@@ -178,19 +223,66 @@ FROM public.trips
 WHERE provider_profile_id = (SELECT id FROM profiles WHERE clerk_user_id = 'user_xxx')
 ORDER BY created_at DESC;
 ```
-- [ ] 쿼리 결과로 생성한 Trip 확인
-- [ ] 화면에서 Trip 목록 표시 확인
+- [x] 쿼리 결과로 생성한 Trip 확인
+- [x] 화면에서 Trip 목록 표시 확인
 
 ---
 
 ## Phase 4: 초대 전송 (invitations)
 
 ### Task 4.1: 요청자 리스트 조회 UI
-- [ ] `app/(routes)/trips/[tripId]/invite/page.tsx` 생성
-- [ ] 요청자 리스트 조회 (노출 정보: 시간대, 대략 위치, 목적지 유형)
-- [ ] 정확한 주소/좌표는 초대 수락 후 공개 (PRD 규칙)
-- [ ] `status = 'REQUESTED'`인 요청만 표시
+- [x] `app/(routes)/trips/[tripId]/invite/page.tsx` 생성
+- [x] 요청자 리스트 조회 (노출 정보: 시간대, 대략 위치, 목적지 유형)
+- [x] 정확한 주소/좌표는 초대 수락 후 공개 (PRD 규칙)
+- [x] `status = 'REQUESTED'`인 요청만 표시
 - **완료 기준**: 요청자 리스트 화면에 표시, 상세 정보는 숨김
+
+---
+
+### Task 4.1 Plan Mode Build 상세 작업 내역
+
+#### 주소 파싱 유틸리티 생성
+- [x] `lib/utils/address.ts` 생성
+- [x] `extractAreaFromAddress` 함수 구현 (한국 주소에서 구/동 추출)
+- [x] `detectDestinationType` 함수 구현 (목적지 유형 판단: 학원, 학교, 집, 기타)
+- [x] 주소 파싱 실패 시 안전 처리 (전체 주소 반환)
+
+#### Trip 조회 Server Action 추가
+- [x] `actions/trips.ts`에 `getTripById` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회
+  - [x] Trip 조회 및 소유자 확인
+  - [x] Trip 상태 정보 반환
+
+#### 요청자 리스트 조회 Server Action 추가
+- [x] `actions/pickup-requests.ts`에 `getAvailablePickupRequests` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] `status = 'REQUESTED'` 필터링
+  - [x] 주소 파싱 유틸리티로 대략 위치 추출
+  - [x] 목적지 유형 판단
+  - [x] 제한된 정보만 반환 (id, pickup_time, origin_area, destination_area, destination_type)
+  - [x] 정확한 주소/좌표 제외 (PRD 규칙 준수)
+
+#### 초대 페이지 UI 생성
+- [x] `app/(routes)/trips/[tripId]/invite/page.tsx` 생성
+- [x] Server Component로 구현
+- [x] `dynamic = 'force-dynamic'` 추가
+- [x] Trip 소유자 확인 및 에러 처리
+- [x] Trip LOCK 상태 확인 (LOCK된 Trip은 초대 불가)
+- [x] 요청자 리스트 카드 형태로 표시
+- [x] 각 요청 카드에 표시:
+  - [x] 픽업 시간 (시간대만, 예: "오후 3시")
+  - [x] 출발지 대략 위치 (구/동)
+  - [x] 목적지 대략 위치 및 유형 (구/동 + 유형)
+- [x] 목적지 유형별 아이콘 및 색상 구분
+- [x] 각 요청에 "초대하기" 버튼 (Task 4.2에서 기능 구현 예정)
+- [x] 빈 목록 처리
+- [x] 에러 처리 (Trip 소유자 아님, Trip LOCK됨 등)
+
+#### 네비게이션 연결
+- [x] Trip 목록 페이지(`app/(routes)/trips/page.tsx`)에 "초대하기" 버튼 추가
+- [x] 각 Trip 카드에 초대 페이지로 링크 (`/trips/[tripId]/invite`)
+- [x] LOCK된 Trip은 버튼 비활성화
 
 ### Task 4.2: 초대 전송 Server Action
 - [ ] `actions/invitations.ts` 생성

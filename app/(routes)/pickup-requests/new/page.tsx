@@ -23,7 +23,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -50,6 +50,12 @@ export default function NewPickupRequestPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [minDateTime, setMinDateTime] = useState<string>("");
+
+  // 클라이언트에서만 min 값 설정 (Hydration 오류 방지)
+  useEffect(() => {
+    setMinDateTime(new Date().toISOString().slice(0, 16));
+  }, []);
 
   const form = useForm<PickupRequestFormData>({
     resolver: zodResolver(pickupRequestSchema),
@@ -109,7 +115,7 @@ export default function NewPickupRequestPage() {
                       <Input
                         type="datetime-local"
                         {...field}
-                        min={new Date().toISOString().slice(0, 16)}
+                        min={minDateTime}
                       />
                     </FormControl>
                     <FormMessage />

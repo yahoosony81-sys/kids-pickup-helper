@@ -14,6 +14,9 @@ const Navbar = () => {
           <Link href="/pickup-requests">
             <Button variant="ghost">픽업 요청</Button>
           </Link>
+          <Link href="/trips">
+            <Button variant="ghost">내 Trip</Button>
+          </Link>
         </SignedIn>
         <SignedOut>
           <SignInButton mode="modal">
