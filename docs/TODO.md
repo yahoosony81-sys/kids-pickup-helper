@@ -285,40 +285,175 @@ ORDER BY created_at DESC;
 - [x] LOCK된 Trip은 버튼 비활성화
 
 ### Task 4.2: 초대 전송 Server Action
-- [ ] `actions/invitations.ts` 생성
-- [ ] `sendInvitation` 함수 구현
+- [x] `actions/invitations.ts` 생성
+- [x] `sendInvitation` 함수 구현
   - **서버 검증 필수**:
     - 요청자는 동시에 `PENDING` 초대 1개만 허용 (DB unique index 활용)
     - 제공자는 수락된 인원이 3명 미만일 때만 초대 가능 (`trip_participants` 조회)
     - Trip이 `is_locked = false`인지 확인
   - `invitations` 테이블에 INSERT
   - `status = 'PENDING'`, `expires_at` 설정 (예: 24시간 후)
-- [ ] 에러 처리 (제약 위반 시 명확한 에러 메시지)
+- [x] 에러 처리 (제약 위반 시 명확한 에러 메시지)
 - **완료 기준**: 초대 전송 시 DB에 레코드 생성, 제약 위반 시 에러 반환
 
+---
+
+### Task 4.2 Plan Mode Build 상세 작업 내역
+
+#### Server Action 구현
+- [x] `actions/invitations.ts` 생성
+- [x] `sendInvitation` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (제공자)
+  - [x] Trip 조회 및 소유자 확인
+  - [x] Trip LOCK 상태 확인 (`is_locked = false`)
+  - [x] 픽업 요청 조회 및 요청자 Profile ID 확인
+  - [x] 픽업 요청 상태 확인 (`status = 'REQUESTED'`)
+  - [x] 요청자 PENDING 초대 1개 제한 검증 (DB unique index 활용)
+  - [x] 제공자 capacity 제한 검증 (`trip_participants` COUNT < 3)
+  - [x] 초대 레코드 INSERT (`status = 'PENDING'`, `expires_at = 24시간 후`)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+
+#### 초대 버튼 컴포넌트 생성
+- [x] `components/invitations/invite-button.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] `sendInvitation` Server Action 호출
+  - [x] 로딩 상태 관리
+  - [x] 에러 메시지 표시
+  - [x] 성공 시 페이지 새로고침 (router.refresh)
+
+#### 초대 페이지 UI 연결
+- [x] `app/(routes)/trips/[tripId]/invite/page.tsx` 수정
+  - [x] `InviteButton` 컴포넌트 import
+  - [x] 기존 "초대하기" 버튼을 `InviteButton` 컴포넌트로 교체
+  - [x] Trip ID, Pickup Request ID, Trip LOCK 상태 전달
+
 ### Task 4.3: 초대 목록 조회
-- [ ] `actions/invitations.ts`에 `getTripInvitations` 함수 추가
-- [ ] 특정 Trip의 초대 목록 조회 (상태별)
-- [ ] 만료된 초대 자동 `EXPIRED` 처리 (선택사항, 또는 별도 cron)
+- [x] `actions/invitations.ts`에 `getTripInvitations` 함수 추가
+- [x] 특정 Trip의 초대 목록 조회 (상태별)
+- [x] 만료된 초대 자동 `EXPIRED` 처리 (선택사항, 또는 별도 cron)
 - **완료 기준**: Trip별 초대 목록 화면에 표시
 
-### Phase 4 실행 확인
-```sql
--- 초대 전송 후 실행
-SELECT id, trip_id, pickup_request_id, status, expires_at, created_at
-FROM public.invitations
-WHERE trip_id = 'trip_xxx'  -- 실제 Trip ID
-ORDER BY created_at DESC;
+---
 
--- 요청자 PENDING 초대 1개 제한 확인 (중복 초대 시도 시 에러 발생 확인)
-SELECT requester_profile_id, COUNT(*) 
+### Task 4.3 Plan Mode Build 상세 작업 내역
+
+#### Server Action 구현
+- [x] `actions/invitations.ts`에 `getTripInvitations` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (제공자)
+  - [x] Trip 조회 및 소유자 확인
+  - [x] 만료된 PENDING 초대 자동 EXPIRED 처리 (expires_at < now())
+  - [x] 특정 Trip의 초대 목록 조회 (상태별 필터링 옵션)
+  - [x] 초대와 함께 픽업 요청 정보 JOIN (pickup_requests 테이블)
+  - [x] 초대 상태별 정렬 (PENDING → ACCEPTED → REJECTED → EXPIRED)
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+
+#### 초대 페이지 UI 수정
+- [x] `app/(routes)/trips/[tripId]/invite/page.tsx` 수정
+  - [x] `getTripInvitations` Server Action import 및 호출
+  - [x] "보낸 초대 목록" 섹션 추가
+  - [x] 초대 목록 카드 형태로 표시
+  - [x] 각 초대 카드에 표시:
+    - [x] 초대 상태 배지 (PENDING: 노란색, ACCEPTED: 초록색, REJECTED: 회색, EXPIRED: 빨간색)
+    - [x] 픽업 요청 정보 (시간, 출발지, 목적지)
+    - [x] 만료 시간 (PENDING/EXPIRED인 경우)
+    - [x] 응답 시간 (ACCEPTED/REJECTED인 경우)
+  - [x] 빈 목록 처리
+  - [x] 에러 처리
+
+### Phase 4 실행 확인
+
+#### 1. 초대 전송 후 데이터베이스 확인
+```sql
+-- 특정 Trip의 초대 목록 확인
+SELECT 
+  i.id,
+  i.trip_id,
+  i.pickup_request_id,
+  i.status,
+  i.expires_at,
+  i.responded_at,
+  i.created_at,
+  pr.pickup_time,
+  pr.origin_text,
+  pr.destination_text
+FROM public.invitations i
+JOIN public.pickup_requests pr ON i.pickup_request_id = pr.id
+WHERE i.trip_id = 'trip_xxx'  -- 실제 Trip ID로 변경
+ORDER BY i.created_at DESC;
+
+-- 모든 초대 목록 확인 (최근 10개)
+SELECT 
+  i.id,
+  i.trip_id,
+  i.pickup_request_id,
+  i.requester_profile_id,
+  i.status,
+  i.expires_at,
+  i.created_at
+FROM public.invitations i
+ORDER BY i.created_at DESC
+LIMIT 10;
+```
+
+#### 2. 요청자 PENDING 초대 1개 제한 확인
+```sql
+-- PENDING 초대가 2개 이상인 요청자 확인 (결과 없어야 함)
+SELECT 
+  requester_profile_id, 
+  COUNT(*) as pending_count
 FROM public.invitations 
 WHERE status = 'PENDING' 
 GROUP BY requester_profile_id 
-HAVING COUNT(*) > 1;  -- 결과 없어야 함
+HAVING COUNT(*) > 1;
+
+-- 각 요청자의 초대 상태별 개수 확인
+SELECT 
+  requester_profile_id,
+  status,
+  COUNT(*) as count
+FROM public.invitations
+GROUP BY requester_profile_id, status
+ORDER BY requester_profile_id, status;
 ```
-- [ ] 쿼리 결과로 초대 레코드 확인
-- [ ] 중복 초대 시도 시 에러 발생 확인
+
+#### 3. 코드 레벨 확인 사항
+- [x] `sendInvitation` 함수에서 요청자 PENDING 초대 1개 제한 검증 구현 확인
+  - 코드 위치: `actions/invitations.ts` 151-178줄
+  - 검증 로직: `existingInvitation` 체크 후 에러 반환
+- [x] DB unique index 존재 확인
+  - 인덱스명: `idx_invitations_unique_pending_requester`
+  - 위치: `supabase/migrations/db.sql` 202-204줄
+  - 제약: `requester_profile_id`에 대해 `status = 'PENDING'`인 경우 unique
+- [x] DB unique index 위반 시 에러 처리 확인
+  - 코드 위치: `actions/invitations.ts` 233-240줄
+  - 에러 코드: `23505` (PostgreSQL unique constraint violation)
+
+#### 4. 실제 테스트 시나리오
+1. **초대 전송 테스트**:
+   - 제공자 계정으로 로그인
+   - Trip 생성
+   - 요청자에게 초대 전송
+   - 위 SQL 쿼리로 초대 레코드 확인
+
+2. **중복 초대 방지 테스트**:
+   - 같은 요청자에게 두 번째 초대 전송 시도
+   - 예상 결과: "이 요청자는 이미 다른 초대를 대기 중입니다." 에러 메시지
+   - 위 SQL 쿼리로 PENDING 초대가 1개만 있는지 확인
+
+3. **초대 목록 조회 테스트**:
+   - 초대 페이지(`/trips/[tripId]/invite`) 접근
+   - "보낸 초대 목록" 섹션에서 초대 목록 표시 확인
+   - 상태별 배지 색상 확인 (PENDING: 노란색, ACCEPTED: 초록색, REJECTED: 회색, EXPIRED: 빨간색)
+
+4. **만료된 초대 자동 처리 테스트**:
+   - `expires_at`이 과거인 PENDING 초대 생성 (직접 DB 수정 또는 시간 조작)
+   - `getTripInvitations` 호출
+   - 해당 초대가 자동으로 EXPIRED 상태로 변경되는지 확인
 
 ---
 

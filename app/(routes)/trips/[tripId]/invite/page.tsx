@@ -6,26 +6,31 @@
  * 1. Trip 소유자 확인
  * 2. 초대 가능한 요청자 리스트 조회 및 표시
  * 3. 각 요청자에 대한 초대 버튼 제공 (Task 4.2에서 기능 구현)
+ * 4. 보낸 초대 목록 조회 및 표시 (Task 4.3에서 기능 구현)
  *
  * 핵심 구현 로직:
  * - Server Component로 구현
  * - getTripById로 Trip 소유자 확인 및 상태 검증
  * - getAvailablePickupRequests로 REQUESTED 상태 요청만 조회
+ * - getTripInvitations로 보낸 초대 목록 조회
  * - PRD 규칙 준수: 정확한 주소/좌표는 숨기고 시간대, 대략 위치, 목적지 유형만 표시
  *
  * @dependencies
  * - @/actions/trips: getTripById Server Action
  * - @/actions/pickup-requests: getAvailablePickupRequests Server Action
+ * - @/actions/invitations: getTripInvitations Server Action
  * - @/components/ui/card: 카드 컴포넌트
  * - @/components/ui/button: 버튼 컴포넌트
  */
 
 import { getTripById } from "@/actions/trips";
 import { getAvailablePickupRequests } from "@/actions/pickup-requests";
+import { getTripInvitations } from "@/actions/invitations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { InviteButton } from "@/components/invitations/invite-button";
 import Link from "next/link";
-import { ArrowLeft, Lock, Users, MapPin, Clock, Building2 } from "lucide-react";
+import { ArrowLeft, Lock, Users, MapPin, Clock, Building2, Mail } from "lucide-react";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -135,6 +140,51 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   const availableRequests = requestsResult.data || [];
 
+  // 4. 보낸 초대 목록 조회
+  const invitationsResult = await getTripInvitations(tripId);
+  const invitations = invitationsResult.success ? invitationsResult.data || [] : [];
+
+  // 초대 상태별 배지 설정
+  const invitationStatusConfig: Record<
+    string,
+    { label: string; className: string }
+  > = {
+    PENDING: {
+      label: "대기 중",
+      className: "bg-yellow-100 text-yellow-800",
+    },
+    ACCEPTED: {
+      label: "수락됨",
+      className: "bg-green-100 text-green-800",
+    },
+    REJECTED: {
+      label: "거절됨",
+      className: "bg-gray-100 text-gray-800",
+    },
+    EXPIRED: {
+      label: "만료됨",
+      className: "bg-red-100 text-red-800",
+    },
+  };
+
+  // 날짜 포맷팅 함수
+  function formatDateTime(dateString: string): string {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
+  }
+
+  function formatTime(dateString: string): string {
+    const date = new Date(dateString);
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       {/* 헤더 */}
@@ -227,24 +277,119 @@ export default async function InvitePage({ params }: InvitePageProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    className="w-full"
-                    disabled={trip.is_locked}
-                    // TODO: Task 4.2에서 초대 전송 기능 구현
-                  >
-                    초대하기
-                  </Button>
-                  {trip.is_locked && (
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      LOCK된 Trip에는 초대를 보낼 수 없습니다.
-                    </p>
-                  )}
+                  <InviteButton
+                    tripId={trip.id}
+                    pickupRequestId={request.id}
+                    isTripLocked={trip.is_locked}
+                  />
                 </CardContent>
               </Card>
             );
           })}
         </div>
       )}
+
+      {/* 보낸 초대 목록 */}
+      <div className="mt-12">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            보낸 초대 목록
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            이 Trip에 보낸 초대 목록입니다.
+          </p>
+        </div>
+
+        {!invitationsResult.success ? (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-destructive">
+                {invitationsResult.error || "초대 목록을 불러오는데 실패했습니다."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : invitations.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 text-center py-12">
+              <p className="text-muted-foreground mb-4">
+                아직 보낸 초대가 없습니다.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                위에서 요청자에게 초대를 보내면 여기에 표시됩니다.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {invitations.map((invitation: any) => {
+              const statusInfo =
+                invitationStatusConfig[invitation.status] ||
+                invitationStatusConfig["PENDING"];
+              const pickupRequest = invitation.pickup_request;
+
+              return (
+                <Card key={invitation.id}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        {pickupRequest?.pickup_time
+                          ? formatDateTime(pickupRequest.pickup_time)
+                          : "시간 정보 없음"}
+                      </CardTitle>
+                        <CardDescription className="mt-2 space-y-1">
+                          {pickupRequest && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-3 w-3" />
+                                <span>출발지: {pickupRequest.origin_text}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-3 w-3" />
+                                <span>목적지: {pickupRequest.destination_text}</span>
+                              </div>
+                            </>
+                          )}
+                          {invitation.status === "PENDING" && invitation.expires_at && (
+                            <div className="flex items-center gap-2 mt-2 text-xs">
+                              <span className="text-muted-foreground">
+                                만료 시간: {formatDateTime(invitation.expires_at)}
+                              </span>
+                            </div>
+                          )}
+                          {(invitation.status === "ACCEPTED" ||
+                            invitation.status === "REJECTED") &&
+                            invitation.responded_at && (
+                              <div className="flex items-center gap-2 mt-2 text-xs">
+                                <span className="text-muted-foreground">
+                                  응답 시간: {formatDateTime(invitation.responded_at)}
+                                </span>
+                              </div>
+                            )}
+                          {invitation.status === "EXPIRED" && invitation.expires_at && (
+                            <div className="flex items-center gap-2 mt-2 text-xs">
+                              <span className="text-muted-foreground">
+                                만료 시간: {formatDateTime(invitation.expires_at)}
+                              </span>
+                            </div>
+                          )}
+                        </CardDescription>
+                      </div>
+                      <span
+                        className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
+                      >
+                        {statusInfo.label}
+                      </span>
+                    </div>
+                  </CardHeader>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
