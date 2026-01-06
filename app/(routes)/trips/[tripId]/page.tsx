@@ -26,6 +26,7 @@ import { getTripReviews } from "@/actions/trip-reviews";
 import { StartTripButton } from "@/components/trips/start-trip-button";
 import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
 import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
+import { ApproveCancelButton } from "@/components/pickup-requests/approve-cancel-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -260,18 +261,26 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                               {pickupRequest && (
                                 <span
                                   className={`px-2 py-1 rounded-md text-xs font-medium ${
-                                    pickupRequest.status === "IN_PROGRESS"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : pickupRequest.status === "COMPLETED"
-                                        ? "bg-gray-100 text-gray-800"
-                                        : "bg-blue-100 text-blue-800"
+                                    pickupRequest.status === "CANCEL_REQUESTED"
+                                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                                      : pickupRequest.status === "IN_PROGRESS"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : pickupRequest.status === "COMPLETED"
+                                          ? "bg-gray-100 text-gray-800"
+                                          : pickupRequest.status === "CANCELLED"
+                                            ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                            : "bg-blue-100 text-blue-800"
                                   }`}
                                 >
-                                  {pickupRequest.status === "IN_PROGRESS"
-                                    ? "진행중"
-                                    : pickupRequest.status === "COMPLETED"
-                                      ? "완료"
-                                      : "매칭됨"}
+                                  {pickupRequest.status === "CANCEL_REQUESTED"
+                                    ? "취소 요청됨"
+                                    : pickupRequest.status === "IN_PROGRESS"
+                                      ? "진행중"
+                                      : pickupRequest.status === "COMPLETED"
+                                        ? "완료"
+                                        : pickupRequest.status === "CANCELLED"
+                                          ? "취소됨"
+                                          : "매칭됨"}
                                 </span>
                               )}
                             </div>
@@ -307,6 +316,13 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                 </div>
                               </div>
                             </>
+                          )}
+
+                          {/* 취소 승인 버튼 (CANCEL_REQUESTED 상태일 때만) */}
+                          {pickupRequest && pickupRequest.status === "CANCEL_REQUESTED" && (
+                            <div className="mt-4 pt-4 border-t">
+                              <ApproveCancelButton pickupRequestId={pickupRequest.id} />
+                            </div>
                           )}
 
                           {/* 도착 사진 업로드 (LOCK된 경우만, 제공자만) */}

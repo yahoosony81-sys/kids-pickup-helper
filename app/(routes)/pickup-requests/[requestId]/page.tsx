@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Clock, AlertCircle, User } from "lucide-react";
 import { InvitationCard } from "@/components/invitations/invitation-card";
+import { CancelRequestButton } from "@/components/pickup-requests/cancel-request-button";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ const statusConfig: Record<
 > = {
   REQUESTED: { label: "요청됨", className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
   MATCHED: { label: "매칭됨", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  CANCEL_REQUESTED: { label: "취소 요청됨", className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
   IN_PROGRESS: { label: "진행중", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
   ARRIVED: { label: "도착", className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
   COMPLETED: { label: "완료", className: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
@@ -167,6 +169,15 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                 <p className="text-sm font-medium text-muted-foreground">목적지</p>
                 <p className="text-base">{pickupRequest.destination_text}</p>
               </div>
+            </div>
+
+            {/* 취소 요청 버튼 */}
+            <div className="pt-4 border-t">
+              <CancelRequestButton
+                pickupRequestId={pickupRequest.id}
+                status={pickupRequest.status}
+                pickupTime={pickupRequest.pickup_time}
+              />
             </div>
           </CardContent>
         </Card>
