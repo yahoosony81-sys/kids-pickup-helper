@@ -28,7 +28,7 @@ import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-vie
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera } from "lucide-react";
+import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus } from "lucide-react";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ const statusConfig: Record<
   },
   COMPLETED: {
     label: "완료",
-    className: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+    className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   },
   CANCELLED: {
     label: "취소됨",
@@ -376,18 +376,45 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           </Card>
         )}
 
-        {/* 모든 참여자 도착 완료 메시지 */}
+        {/* 서비스 완료 상태 카드 */}
         {trip.status === "COMPLETED" && (
-          <Card>
+          <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-purple-600" />
-                모든 참여자가 도착했습니다
+              <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                서비스 완료
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-green-700 dark:text-green-300">
                 모든 참여자의 도착 사진이 업로드되었습니다. 서비스가 완료되었습니다.
               </CardDescription>
             </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 서비스 완료 시간 표시 */}
+              {(trip.arrived_at || trip.completed_at) && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-green-700 dark:text-green-300">서비스 완료 시간:</span>
+                  <span className="font-medium text-green-800 dark:text-green-200">
+                    {formatDateTime(trip.arrived_at || trip.completed_at || "")}
+                  </span>
+                </div>
+              )}
+              
+              {/* Phase 8 원칙 설명 */}
+              <div className="pt-2 border-t border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  리뷰 작성 여부와 관계없이 다음 Trip을 생성할 수 있습니다.
+                </p>
+              </div>
+
+              {/* 다음 Trip 생성하기 버튼 */}
+              <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white">
+                <Link href="/trips/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  다음 Trip 생성하기
+                </Link>
+              </Button>
+            </CardContent>
           </Card>
         )}
       </div>

@@ -55,7 +55,7 @@ const statusConfig: Record<
   OPEN: { label: "오픈", className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
   IN_PROGRESS: { label: "진행중", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
   ARRIVED: { label: "도착", className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
-  COMPLETED: { label: "완료", className: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
+  COMPLETED: { label: "완료", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
   CANCELLED: { label: "취소됨", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
 };
 
@@ -162,6 +162,11 @@ export default async function TripsPage() {
                     {trip.arrived_at && (
                       <div className="text-sm text-muted-foreground">
                         도착 시간: {formatDateTime(trip.arrived_at)}
+                      </div>
+                    )}
+                    {trip.status === "COMPLETED" && (trip.arrived_at || trip.completed_at) && (
+                      <div className="text-sm font-medium text-green-700 dark:text-green-300">
+                        완료 시간: {formatDateTime(trip.arrived_at || trip.completed_at || "")}
                       </div>
                     )}
                   </div>

@@ -897,9 +897,44 @@ SELECT status FROM public.trips WHERE id = 'trip_xxx';
 - **완료 기준**: 도착 사진 업로드 시 서비스가 즉시 완료 상태로 전환, 제공자가 다음 서비스 제공 가능
 
 #### Task 8A.2: 서비스 완료 상태 확인
-- [ ] Trip 상세 페이지에서 서비스 완료 상태 표시
-- [ ] 제공자가 다음 Trip 생성 가능 여부 확인 (서비스 완료 시 즉시 가능)
+- [x] Trip 상세 페이지에서 서비스 완료 상태 표시
+- [x] 제공자가 다음 Trip 생성 가능 여부 확인 (서비스 완료 시 즉시 가능)
 - **완료 기준**: 서비스 완료 후 제공자가 즉시 다음 서비스 제공 가능
+
+---
+
+### Task 8A.2 Plan Mode Build 상세 작업 내역
+
+#### Trip 상세 페이지 서비스 완료 상태 표시 개선
+- [x] `app/(routes)/trips/[tripId]/page.tsx` 수정
+  - [x] 서비스 완료 상태 카드 개선 (380-392줄)
+    - [x] CheckCircle2 아이콘 추가
+    - [x] 초록색 계열 배경색 및 테두리 적용 (`border-green-200 bg-green-50`)
+    - [x] 제목: "서비스 완료"로 변경
+    - [x] Phase 8 원칙 설명 추가: "리뷰 작성 여부와 관계없이 다음 Trip을 생성할 수 있습니다."
+  - [x] 서비스 완료 시간 표시 추가
+    - [x] `trip.arrived_at` 또는 `trip.completed_at` 표시
+    - [x] "서비스 완료 시간: YYYY년 MM월 DD일 HH:MM" 형식
+  - [x] "다음 Trip 생성하기" 버튼 추가
+    - [x] `trip.status === "COMPLETED"`일 때만 표시
+    - [x] `/trips/new`로 이동하는 버튼
+    - [x] Plus 아이콘 사용
+    - [x] 초록색 Primary 버튼 스타일 (`bg-green-600 hover:bg-green-700`)
+  - [x] COMPLETED 상태 배지 색상 개선
+    - [x] 회색 계열에서 초록색 계열로 변경 (`bg-green-100 text-green-800`)
+
+#### Trip 목록 페이지 서비스 완료 상태 표시 개선
+- [x] `app/(routes)/trips/page.tsx` 수정
+  - [x] 서비스 완료 시간 표시 추가
+    - [x] `trip.status === "COMPLETED"`일 때 `trip.arrived_at` 또는 `trip.completed_at` 표시
+    - [x] "완료 시간: YYYY년 MM월 DD일 HH:MM" 형식
+    - [x] 초록색 계열 텍스트 색상 적용 (`text-green-700 dark:text-green-300`)
+  - [x] COMPLETED 상태 배지 색상 개선
+    - [x] 회색 계열에서 초록색 계열로 변경 (`bg-green-100 text-green-800`)
+
+#### 아이콘 및 스타일
+- [x] `lucide-react`에서 `CheckCircle2`, `Plus` 아이콘 import 추가
+- [x] 다크 모드 지원 (모든 색상에 dark: 변형 추가)
 
 ---
 
