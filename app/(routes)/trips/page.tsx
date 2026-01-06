@@ -165,7 +165,7 @@ export default async function TripsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 pt-4 border-t">
+                  <div className="mt-4 pt-4 border-t space-y-2">
                     <Button
                       asChild
                       variant="outline"
@@ -175,6 +175,15 @@ export default async function TripsPage() {
                       <Link href={`/trips/${trip.id}/invite`}>
                         <UserPlus className="mr-2 h-4 w-4" />
                         {trip.is_locked ? "초대 불가 (LOCK됨)" : "초대하기"}
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="default"
+                      className="w-full"
+                    >
+                      <Link href={`/trips/${trip.id}`}>
+                        상세 보기
                       </Link>
                     </Button>
                   </div>

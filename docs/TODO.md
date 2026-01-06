@@ -586,32 +586,148 @@ SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  -- status =
 ## Phase 6: 출발(LOCK) 처리
 
 ### Task 6.1: 출발 버튼 UI
-- [ ] `app/(routes)/trips/[tripId]/page.tsx` 생성 또는 수정
-- [ ] Trip 상세 페이지에 출발 버튼 추가
-- [ ] 출발 가능 조건 표시 (참여자 존재, `is_locked = false`)
+- [x] `app/(routes)/trips/[tripId]/page.tsx` 생성 또는 수정
+- [x] Trip 상세 페이지에 출발 버튼 추가
+- [x] 출발 가능 조건 표시 (참여자 존재, `is_locked = false`)
 - **완료 기준**: 출발 버튼 표시 및 클릭 가능
 
 ### Task 6.2: 출발(LOCK) Server Action
-- [ ] `actions/trips.ts`에 `startTrip` 함수 추가
-- [ ] **서버 검증 필수**:
+- [x] `actions/trips.ts`에 `startTrip` 함수 추가
+- [x] **서버 검증 필수**:
   - Trip `is_locked = false` 확인
   - Trip에 참여자 존재 확인 (`trip_participants` COUNT > 0)
-- [ ] 트랜잭션 처리:
+- [x] 트랜잭션 처리:
   1. Trip `is_locked = true`, `status = 'IN_PROGRESS'`, `start_at` 업데이트
   2. 남아있는 모든 `PENDING` 초대를 `EXPIRED` 처리
   3. 관련 `pickup_requests.status = 'IN_PROGRESS'` 업데이트
-- [ ] 에러 처리
+- [x] 에러 처리
 - **완료 기준**: 출발 시 Trip LOCK, 남은 초대 EXPIRED, 요청 상태 업데이트
 
+---
+
+### Phase 6 Plan Mode Build 상세 작업 내역
+
+#### Server Action 구현
+- [x] `actions/trips.ts`에 `startTrip` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (clerk_user_id 기준)
+  - [x] Trip 조회 및 소유자 확인
+  - [x] Trip `is_locked = false` 확인
+  - [x] Trip에 참여자 존재 확인 (`trip_participants` COUNT > 0)
+  - [x] 트랜잭션 처리 (순차 실행):
+    1. [x] Trip 업데이트: `is_locked = true`, `status = 'IN_PROGRESS'`, `start_at = now()`
+    2. [x] 남아있는 모든 `PENDING` 초대를 `EXPIRED` 처리 (`invitations` 테이블)
+    3. [x] 관련 `pickup_requests.status = 'IN_PROGRESS'` 업데이트 (Trip 참여자의 픽업 요청)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+
+#### 출발 버튼 컴포넌트 생성
+- [x] `components/trips/start-trip-button.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] `startTrip` Server Action 호출
+  - [x] 로딩 상태 관리
+  - [x] 에러 메시지 표시
+  - [x] 성공 시 페이지 새로고침 (router.refresh)
+  - [x] 출발 불가 조건 시 버튼 비활성화 및 안내 메시지
+  - [x] Props: `tripId`, `isLocked`, `participantCount`
+
+#### Trip 상세 페이지 생성
+- [x] `app/(routes)/trips/[tripId]/page.tsx` 생성
+  - [x] Server Component로 구현
+  - [x] `dynamic = 'force-dynamic'` 추가
+  - [x] `getTripById` Server Action import 및 호출
+  - [x] `getTripParticipants` Server Action import 및 호출
+  - [x] Trip 소유자 확인 및 에러 처리
+  - [x] Trip 상세 정보 표시:
+    - [x] Trip 상태 배지
+    - [x] LOCK 상태 표시
+    - [x] 수용 인원 및 현재 참여자 수
+    - [x] 출발 시간 (LOCK된 경우)
+  - [x] 참여자 목록 표시:
+    - [x] 각 참여자의 픽업 요청 정보 (시간, 출발지, 목적지)
+    - [x] `sequence_order` 순서대로 표시
+  - [x] `StartTripButton` 컴포넌트 연결
+  - [x] 출발 가능 조건 표시 (참여자 존재, `is_locked = false`)
+  - [x] LOCK된 경우 "이미 출발했습니다" 메시지
+  - [x] 에러 처리 (Trip 없음, 소유자 아님 등)
+
+#### 네비게이션 연결
+- [x] `app/(routes)/trips/page.tsx` 수정
+  - [x] 각 Trip 카드에 "상세 보기" 링크 추가 (`/trips/[tripId]`)
+  - [x] LOCK된 Trip은 별도 표시
+
 ### Phase 6 실행 확인
+
+#### 1. 출발 처리 후 데이터베이스 확인
 ```sql
--- 출발 후 실행
-SELECT is_locked, status, start_at FROM public.trips WHERE id = 'trip_xxx';  -- is_locked = true, status = 'IN_PROGRESS' 확인
-SELECT status FROM public.invitations WHERE trip_id = 'trip_xxx' AND status = 'PENDING';  -- 결과 없어야 함 (모두 EXPIRED)
-SELECT status FROM public.pickup_requests WHERE id IN (SELECT pickup_request_id FROM trip_participants WHERE trip_id = 'trip_xxx');  -- status = 'IN_PROGRESS' 확인
+-- 출발 후 실행 (trip_xxx를 실제 Trip ID로 변경)
+SELECT is_locked, status, start_at FROM public.trips WHERE id = 'trip_xxx';  
+-- 예상 결과: is_locked = true, status = 'IN_PROGRESS', start_at이 현재 시간으로 설정됨
+
+-- PENDING 초대가 모두 EXPIRED 처리되었는지 확인
+SELECT id, status, expires_at 
+FROM public.invitations 
+WHERE trip_id = 'trip_xxx' AND status = 'PENDING';  
+-- 예상 결과: 결과 없어야 함 (모두 EXPIRED로 변경됨)
+
+-- 관련 픽업 요청 상태가 IN_PROGRESS로 업데이트되었는지 확인
+SELECT id, status, pickup_time, origin_text, destination_text
+FROM public.pickup_requests 
+WHERE id IN (
+  SELECT pickup_request_id 
+  FROM trip_participants 
+  WHERE trip_id = 'trip_xxx'
+);  
+-- 예상 결과: 모든 참여자의 pickup_requests.status = 'IN_PROGRESS'
 ```
+
+#### 2. 코드 레벨 확인 사항
+- [x] `startTrip` 함수에서 Trip 업데이트 로직 구현 확인
+  - 코드 위치: `actions/trips.ts` 545-563줄
+  - 업데이트 내용: `is_locked = true`, `status = 'IN_PROGRESS'`, `start_at = now()`
+- [x] `startTrip` 함수에서 PENDING 초대 EXPIRED 처리 로직 구현 확인
+  - 코드 위치: `actions/trips.ts` 565-584줄
+  - 처리 내용: `invitations.status = 'EXPIRED'` (WHERE `trip_id` AND `status = 'PENDING'`)
+- [x] `startTrip` 함수에서 픽업 요청 상태 업데이트 로직 구현 확인
+  - 코드 위치: `actions/trips.ts` 586-610줄
+  - 업데이트 내용: 참여자의 `pickup_requests.status = 'IN_PROGRESS'`
+- [x] `acceptInvitation` 함수에서 LOCK 확인 로직 구현 확인
+  - 코드 위치: `actions/invitations.ts` 772-780줄
+  - 검증 내용: `trip.is_locked = true`인 경우 에러 반환
+- [x] `sendInvitation` 함수에서 LOCK 확인 로직 구현 확인
+  - 코드 위치: `actions/invitations.ts` 111-120줄
+  - 검증 내용: `trip.is_locked = true`인 경우 에러 반환
+
+#### 3. 실제 테스트 시나리오
+1. **출발 처리 테스트**:
+   - 제공자 계정으로 로그인
+   - Trip 생성 및 참여자 초대 수락 대기
+   - 참여자가 초대 수락 (최소 1명)
+   - Trip 상세 페이지(`/trips/[tripId]`) 접근
+   - "출발하기" 버튼 클릭
+   - 위 SQL 쿼리로 상태 업데이트 확인
+
+2. **LOCK 후 초대 수락 불가 테스트**:
+   - 출발 처리 완료 후 (Trip LOCK됨)
+   - 요청자 계정으로 로그인
+   - PENDING 상태인 초대가 있다면 초대 상세 페이지 접근
+   - "수락하기" 버튼 클릭 시도
+   - 예상 결과: "이 Trip은 이미 출발했습니다. 초대를 수락할 수 없습니다." 에러 메시지
+   - 코드 위치: `actions/invitations.ts` 772-780줄
+
+3. **LOCK 후 초대 전송 불가 테스트**:
+   - 출발 처리 완료 후 (Trip LOCK됨)
+   - 제공자 계정으로 로그인
+   - 초대 페이지(`/trips/[tripId]/invite`) 접근
+   - "초대하기" 버튼 클릭 시도
+   - 예상 결과: "이 Trip은 이미 출발했습니다. 초대를 보낼 수 없습니다." 에러 메시지
+   - 코드 위치: `actions/invitations.ts` 111-120줄
+
+#### 4. 확인 완료 체크
 - [ ] 쿼리 결과로 모든 상태 업데이트 확인
 - [ ] LOCK 후 초대 수락 시도 시 에러 발생 확인
+- [ ] LOCK 후 초대 전송 시도 시 에러 발생 확인
 
 ---
 
