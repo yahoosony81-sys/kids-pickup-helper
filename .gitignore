@@ -11,7 +11,7 @@
 !.yarn/versions
 
 # pnpm
-pnpm-lock.yaml
+# pnpm-lock.yaml - Vercel 배포를 위해 Git에 커밋 필요
 
 # testing
 /coverage

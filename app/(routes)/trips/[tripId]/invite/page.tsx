@@ -31,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { InviteButton } from "@/components/invitations/invite-button";
 import Link from "next/link";
 import { ArrowLeft, Lock, Users, MapPin, Clock, Building2, Mail } from "lucide-react";
-import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -176,13 +175,6 @@ export default async function InvitePage({ params }: InvitePageProps) {
     const hours = date.getHours().toString().padStart(2, "0");
     const minutes = date.getMinutes().toString().padStart(2, "0");
     return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
-  }
-
-  function formatTime(dateString: string): string {
-    const date = new Date(dateString);
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
   }
 
   return (

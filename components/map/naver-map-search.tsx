@@ -443,7 +443,7 @@ export function NaverMapSearch({
       console.error("   5. 지도 컨테이너 크기가 0이거나 잘못됨");
       console.groupEnd();
     }
-  }, [isMapLoaded, onChange]);
+  }, [isMapLoaded, onChange, value]);
 
   // value 변경 시 마커 업데이트
   useEffect(() => {
@@ -676,7 +676,7 @@ export function NaverMapSearch({
       const allResults: SearchResult[] = [];
       let lastResponse: any = null;
       let lastStatus: any = null;
-      let successfulQueries: string[] = [];
+      const successfulQueries: string[] = [];
       
       // 장소명 검색어인 경우 Places API 우선 사용
       if (isPlaceNameQuery(cleanedQuery)) {

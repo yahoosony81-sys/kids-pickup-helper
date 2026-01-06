@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import { AcceptRejectButtons } from "@/components/invitations/accept-reject-buttons";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Clock, Calendar, AlertCircle } from "lucide-react";
-import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +44,6 @@ function formatDateTime(dateString: string): string {
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
   return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
-}
-
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
 }
 
 // 초대 상태별 배지 설정

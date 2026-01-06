@@ -24,7 +24,7 @@ import { getMyPickupRequests } from "@/actions/pickup-requests";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, MapPin, Clock } from "lucide-react";
+import { Plus, MapPin } from "lucide-react";
 // 날짜 포맷팅 유틸리티 함수
 function formatDateTime(dateString: string): string {
   const date = new Date(dateString);
