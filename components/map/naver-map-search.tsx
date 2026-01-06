@@ -65,6 +65,7 @@ export function NaverMapSearch({
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // 네이버 지도 API 스크립트 로드
   useEffect(() => {
@@ -229,8 +230,31 @@ export function NaverMapSearch({
       console.error("   2. Client ID가 올바르지 않음");
       console.error("   3. 네이버 클라우드 플랫폼 서비스 장애");
       console.error("   4. CORS 정책 문제 (브라우저 콘솔의 Network 탭 확인)");
+      setMapError("네이버 지도 API를 불러올 수 없습니다. 네트워크 연결을 확인해주세요.");
       console.groupEnd();
     };
+    
+    // 네이버 지도 API 인증 오류 감지 (401 오류)
+    const checkAuthError = () => {
+      // 스크립트 로드 후 일정 시간이 지나도 지도가 로드되지 않으면 인증 오류로 간주
+      setTimeout(() => {
+        if (!isMapLoaded && !mapError) {
+          // window.naver가 없거나 maps가 없으면 인증 실패 가능성
+          if (!window.naver?.maps) {
+            setMapError("네이버 지도 API 인증에 실패했습니다. 도메인이 등록되어 있는지 확인해주세요.");
+            console.error("❌ 네이버 지도 API 인증 실패 (401 오류 가능성)");
+            console.error("💡 해결 방법:");
+            console.error("   1. 네이버 클라우드 플랫폼 콘솔 접속: https://console.ncloud.com/");
+            console.error("   2. AI·NAVER API → Application 등록");
+            console.error("   3. Client ID '0ru9rtokfs' 선택");
+            console.error("   4. Web 서비스 URL에 'https://kids-pickup-helper.vercel.app' 추가");
+            console.error("   5. 저장 후 Vercel 재배포");
+          }
+        }
+      }, 5000); // 5초 후 확인
+    };
+    
+    checkAuthError();
     
     console.log("   스크립트를 DOM에 추가합니다...");
     document.head.appendChild(script);
@@ -1097,9 +1121,34 @@ export function NaverMapSearch({
       {/* 지도 */}
       <div
         ref={mapRef}
-        className="w-full h-64 rounded-md border overflow-hidden"
+        className="w-full h-64 rounded-md border overflow-hidden relative"
         style={{ minHeight: "256px" }}
-      />
+      >
+        {/* 에러 메시지 표시 */}
+        {mapError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+            <div className="text-center p-4 max-w-md">
+              <div className="text-red-600 dark:text-red-400 font-semibold mb-2">
+                ⚠️ 지도를 불러올 수 없습니다
+              </div>
+              <div className="text-sm text-muted-foreground mb-4">
+                {mapError}
+              </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>해결 방법:</div>
+                <div className="text-left pl-4">
+                  <div>1. 네이버 클라우드 플랫폼 콘솔 접속</div>
+                  <div>2. Web 서비스 URL에 도메인 등록</div>
+                  <div>3. Vercel 재배포</div>
+                </div>
+                <div className="mt-2 text-xs">
+                  자세한 내용은 개발자에게 문의하세요.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 선택한 위치 표시 */}
       {value && (
