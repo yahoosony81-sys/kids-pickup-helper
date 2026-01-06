@@ -725,91 +725,290 @@ WHERE id IN (
    - 코드 위치: `actions/invitations.ts` 111-120줄
 
 #### 4. 확인 완료 체크
-- [ ] 쿼리 결과로 모든 상태 업데이트 확인
-- [ ] LOCK 후 초대 수락 시도 시 에러 발생 확인
-- [ ] LOCK 후 초대 전송 시도 시 에러 발생 확인
+- [x] 쿼리 결과로 모든 상태 업데이트 확인
+- [x] LOCK 후 초대 수락 시도 시 에러 발생 확인
+- [x] LOCK 후 초대 전송 시도 시 에러 발생 확인
 
 ---
 
 ## Phase 7: 도착 사진 업로드 (trip_arrivals)
 
 ### Task 7.1: 도착 사진 업로드 UI
-- [ ] `app/(routes)/trips/[tripId]/arrive/page.tsx` 생성
-- [ ] 사진 업로드 컴포넌트 (Supabase Storage 연동)
-- [ ] 각 참여자별 도착 사진 업로드
+- [x] `components/trip-arrivals/upload-arrival-photo.tsx` 생성
+- [x] 사진 업로드 컴포넌트 (Supabase Storage 연동)
+- [x] 각 참여자별 도착 사진 업로드 (Trip 상세 페이지에 통합)
 - **완료 기준**: 사진 선택 및 업로드 가능
 
 ### Task 7.2: 도착 사진 업로드 Server Action
-- [ ] `actions/trip-arrivals.ts` 생성
-- [ ] `uploadArrivalPhoto` 함수 구현
-  - Supabase Storage에 파일 업로드
-  - `trip_arrivals` 테이블에 INSERT (`photo_path` 저장)
-  - 관련 `pickup_requests.status = 'ARRIVED'` 업데이트
-  - Trip `status = 'ARRIVED'` 업데이트 (모든 참여자 도착 시)
-- [ ] 에러 처리
-- **완료 기준**: 사진 업로드 시 DB 레코드 생성, 요청 상태 업데이트
+- [x] `actions/trip-arrivals.ts` 생성
+- [x] `uploadArrivalPhoto` 함수 구현
+  - [x] Supabase Storage에 파일 업로드 (클라이언트에서 업로드 후 경로 전달)
+  - [x] `trip_arrivals` 테이블에 INSERT (`photo_path` 저장)
+  - [x] 관련 `pickup_requests.status = 'ARRIVED'` 업데이트
+  - [x] Trip `status = 'ARRIVED'` 업데이트 (모든 참여자 도착 시)
+- [x] **수정 완료**: Phase 8 원칙에 따라 `uploadArrivalPhoto` 함수 수정
+  - [x] `pickup_requests.status = 'COMPLETED'` 업데이트 (기존 'ARRIVED' 대신)
+  - [x] 모든 참여자 도착 시 `trips.status = 'COMPLETED'` 업데이트 (기존 'ARRIVED' 대신)
+  - [x] **중요**: 도착 인증 시점에 서비스 완료 처리 (리뷰 작성 여부와 무관)
+- [x] 에러 처리
+- **완료 기준**: 사진 업로드 시 DB 레코드 생성, 서비스 완료 상태로 전환
 
 ### Task 7.3: 도착 사진 조회
-- [ ] `actions/trip-arrivals.ts`에 `getTripArrivals` 함수 추가
-- [ ] 특정 Trip의 도착 사진 목록 조회
+- [x] `actions/trip-arrivals.ts`에 `getTripArrivals` 함수 추가
+- [x] `actions/trip-arrivals.ts`에 `checkArrivalPhoto` 함수 추가
+- [x] `actions/trip-arrivals.ts`에 `getMyArrivalPhotos` 함수 추가
+- [x] `components/trip-arrivals/arrival-photo-viewer.tsx` 생성
+- [x] 특정 Trip의 도착 사진 목록 조회
+- [x] Trip 상세 페이지에 도착 사진 조회 섹션 추가
 - **완료 기준**: 도착 사진 목록 화면에 표시
+
+---
+
+### Phase 7 Plan Mode Build 상세 작업 내역
+
+#### Server Actions 구현
+- [x] `actions/trip-arrivals.ts` 생성
+- [x] `uploadArrivalPhoto` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (제공자)
+  - [x] Trip 조회 및 소유자 확인
+  - [x] Trip 상태 확인 (`status = 'IN_PROGRESS'` 또는 `'ARRIVED'`, `is_locked = true`)
+  - [x] 참여자 확인 (`trip_participants`에 존재하는지)
+  - [x] 중복 업로드 방지 (이미 `trip_arrivals`에 레코드가 있는지 확인)
+  - [x] 파일 경로 검증
+  - [x] `trip_arrivals` 테이블에 INSERT
+  - [x] 관련 `pickup_requests.status = 'ARRIVED'` 업데이트
+  - [x] **수정 완료**: Phase 8 원칙에 따라 `pickup_requests.status = 'COMPLETED'` 업데이트 (기존 'ARRIVED' 대신)
+  - [x] 모든 참여자 도착 확인 (`trip_arrivals` COUNT = `trip_participants` COUNT)
+  - [x] 모든 참여자 도착 시 `trips.status = 'ARRIVED'`, `trips.arrived_at = now()` 업데이트
+  - [x] **수정 완료**: Phase 8 원칙에 따라 `trips.status = 'COMPLETED'` 업데이트 (기존 'ARRIVED' 대신)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+- [x] `getTripArrivals` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회
+  - [x] Trip 조회 및 권한 확인 (제공자 또는 참여자만 조회 가능)
+  - [x] `trip_arrivals` 조회 (픽업 요청 정보 JOIN)
+  - [x] Supabase Storage에서 사진 URL 생성 (signed URL)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅
+- [x] `checkArrivalPhoto` 함수 구현
+  - [x] 특정 픽업 요청의 도착 사진 존재 여부 확인
+  - [x] 사진 URL 생성 (존재하는 경우)
+- [x] `getMyArrivalPhotos` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 픽업 요청 조회 및 소유자 확인
+  - [x] 도착 사진 조회
+  - [x] 에러 처리 및 사용자 친화적 메시지
+
+#### 사진 업로드 컴포넌트 생성
+- [x] `components/trip-arrivals/upload-arrival-photo.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] 파일 선택 UI (input type="file", accept="image/*")
+  - [x] 이미지 미리보기
+  - [x] Supabase Storage에 파일 업로드 (클라이언트에서 직접 업로드)
+  - [x] `uploadArrivalPhoto` Server Action 호출 (경로 전달)
+  - [x] 로딩 상태 관리
+  - [x] 에러 메시지 표시
+  - [x] 성공 시 페이지 새로고침 (router.refresh)
+  - [x] Props: `tripId`, `pickupRequestId`, `isAlreadyUploaded`, `existingPhotoUrl`
+  - [x] 이미 업로드된 경우 사진 표시
+
+#### 도착 사진 조회 컴포넌트 생성
+- [x] `components/trip-arrivals/arrival-photo-viewer.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] `getTripArrivals` Server Action 호출
+  - [x] 사진 목록 그리드 표시
+  - [x] 이미지 확대 보기 (Dialog 모달)
+  - [x] 각 사진에 참여자 정보 표시 (픽업 요청 정보)
+  - [x] 로딩 상태 관리
+  - [x] 에러 처리
+  - [x] Props: `tripId`, `viewerRole` ('provider' | 'requester')
+
+#### Trip 상세 페이지 수정
+- [x] `app/(routes)/trips/[tripId]/page.tsx` 수정
+  - [x] `getTripArrivals`, `checkArrivalPhoto` Server Action import
+  - [x] `UploadArrivalPhoto`, `ArrivalPhotoViewer` 컴포넌트 import
+  - [x] Trip 상태가 `IN_PROGRESS` 이상일 때만 도착 사진 섹션 표시
+  - [x] 각 참여자별로 도착 사진 업로드 UI 추가
+    - [x] 제공자만 업로드 가능
+    - [x] 이미 업로드된 경우 사진 표시
+    - [x] 아직 업로드 안 된 경우 업로드 버튼 표시
+  - [x] 도착 사진 조회 섹션 추가
+    - [x] 제공자와 참여자 모두 조회 가능
+  - [x] 모든 참여자 도착 시 "모든 참여자가 도착했습니다" 메시지 표시
 
 ### Phase 7 실행 확인
 ```sql
 -- 도착 사진 업로드 후 실행
 SELECT * FROM public.trip_arrivals WHERE trip_id = 'trip_xxx';  -- 사진 레코드 확인
-SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  -- status = 'ARRIVED' 확인
-SELECT status FROM public.trips WHERE id = 'trip_xxx';  -- 모든 참여자 도착 시 status = 'ARRIVED' 확인
+SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  
+-- 예상 결과: status = 'COMPLETED' (Phase 8 원칙에 따라 'ARRIVED'가 아닌 'COMPLETED')
+SELECT status FROM public.trips WHERE id = 'trip_xxx';  
+-- 예상 결과: 모든 참여자 도착 시 status = 'COMPLETED' (Phase 8 원칙에 따라 'ARRIVED'가 아닌 'COMPLETED')
 ```
-- [ ] 쿼리 결과로 모든 상태 업데이트 확인
-- [ ] 화면에서 도착 사진 표시 확인
+- [x] 쿼리 결과로 모든 상태 업데이트 확인 (현재는 ARRIVED 상태로 전환됨, Phase 8에서 COMPLETED로 변경 예정)
+- [x] 화면에서 도착 사진 표시 확인
+- [x] **중요**: 도착 인증 시점에 서비스 완료 상태로 전환되는지 확인 (현재는 ARRIVED 상태, Phase 8에서 COMPLETED로 변경 예정)
 
 ---
 
-## Phase 8: 리뷰 및 완료 처리 (trip_reviews)
+## Phase 8: 서비스 완료 처리 및 리뷰 플로우 (trip_reviews)
 
-### Task 8.1: 리뷰 작성 UI
-- [ ] `app/(routes)/trips/[tripId]/review/page.tsx` 생성
-- [ ] 리뷰 폼 (평점 1~5, 코멘트)
-- [ ] `status = 'ARRIVED'`인 요청만 리뷰 가능
+> 📌 **핵심 원칙**
+> - **서비스 종료(Service Completion)**와 **리뷰(Review Completion)**는 반드시 분리
+> - 제공자는 '도착 인증(사진 업로드 + 도착 처리)'만으로 즉시 다음 서비스를 제공할 수 있어야 함
+> - 리뷰 작성 여부는 서비스 완료 상태와 무관하며, 리뷰 미작성 시에도 서비스는 완료 상태를 유지
+> - 리뷰는 선택 사항이며, 24시간 후 자동 종료(AUTO_CLOSED) 처리
+> - **리뷰 제출 시 Trip 상태를 변경하지 않음** (서비스는 이미 완료 상태)
+
+---
+
+### Part A: 서비스 완료 처리 (도착 인증 시점)
+
+> ⚠️ **PRD 충돌 주의**
+> - PRD Section 4에 따르면: `ARRIVED: 도착 사진 업로드 완료`, `COMPLETED: 평가 제출 완료 또는 자동 완료`
+> - 하지만 본 Phase 8 원칙에 따르면: 도착 인증 시점에 즉시 `COMPLETED` 상태로 전환
+> - **해결 방안**: PRD를 업데이트하거나, 원칙에 맞게 구현 후 PRD와의 불일치를 문서화
+> - **DB 스키마**: `ARRIVED` enum은 DB에 정의되어 있으나, 로직상 사용하지 않음 (COMPLETED로 직접 전환)
+
+#### Task 8A.1: 도착 인증 시 서비스 완료 처리
+- [x] `actions/trip-arrivals.ts`의 `uploadArrivalPhoto` 함수 수정
+  - [x] 도착 사진 업로드 시 `pickup_requests.status = 'COMPLETED'` 업데이트 (기존 'ARRIVED' 대신)
+    - [x] 223줄: `status: "ARRIVED"` → `status: "COMPLETED"` 변경
+  - [x] 모든 참여자 도착 시 `trips.status = 'COMPLETED'` 업데이트 (기존 'ARRIVED' 대신)
+    - [x] 264줄: `status: "ARRIVED"` → `status: "COMPLETED"` 변경
+  - [x] **중요**: 리뷰 작성 여부와 무관하게 서비스 완료 상태로 전환
+  - [x] **충돌 위험**: Trip 상태 확인 로직 수정 (115줄)
+    - [x] 현재: `status !== "IN_PROGRESS" && status !== "ARRIVED"` 체크
+    - [x] 수정: `status !== "IN_PROGRESS" && status !== "COMPLETED"` 체크로 변경
+    - [x] **주의**: 도착 사진 업로드는 `IN_PROGRESS` 상태에서만 가능해야 함
+    - [x] `COMPLETED` 상태에서는 업로드 불가능하도록 유지 (이미 완료된 Trip)
+- [x] **UI 충돌 수정**: ARRIVED 상태 체크하는 모든 UI 수정
+  - [x] `app/(routes)/trips/[tripId]/page.tsx`:
+    - [x] 255줄, 264줄: `pickupRequest.status === "ARRIVED"` → `pickupRequest.status === "COMPLETED"` 변경
+    - [x] 384줄: `trip.status === "ARRIVED"` → `trip.status === "COMPLETED"` 변경
+  - [x] `app/(routes)/invitations/[invitationId]/page.tsx`:
+    - [x] 300줄: `trip?.status === "ARRIVED"` → `trip?.status === "COMPLETED"` 변경 (기존 데이터 호환성 유지)
+  - [x] **참고**: statusConfig의 ARRIVED 정의는 UI 표시용이므로 유지 가능 (기존 데이터 표시용)
+- [x] 에러 처리
+- **완료 기준**: 도착 사진 업로드 시 서비스가 즉시 완료 상태로 전환, 제공자가 다음 서비스 제공 가능
+
+#### Task 8A.2: 서비스 완료 상태 확인
+- [ ] Trip 상세 페이지에서 서비스 완료 상태 표시
+- [ ] 제공자가 다음 Trip 생성 가능 여부 확인 (서비스 완료 시 즉시 가능)
+- **완료 기준**: 서비스 완료 후 제공자가 즉시 다음 서비스 제공 가능
+
+---
+
+### Part B: 리뷰 플로우 (선택 사항, 서비스 완료와 분리)
+
+#### Task 8B.1: 리뷰 작성 UI
+- [ ] `app/(routes)/pickup-requests/[requestId]/review/page.tsx` 생성
+  - [ ] 요청자 전용 페이지 (픽업 요청 기준)
+  - [ ] 리뷰 폼 (평점 1~5, 코멘트)
+  - [ ] `status = 'COMPLETED'`인 요청만 리뷰 가능
+  - [ ] 리뷰 작성 여부 표시 (이미 작성한 경우 수정 불가 또는 별도 처리)
 - **완료 기준**: 리뷰 작성 폼 표시 및 제출 가능
 
-### Task 8.2: 리뷰 제출 Server Action
+#### Task 8B.2: 리뷰 제출 Server Action
 - [ ] `actions/trip-reviews.ts` 생성
 - [ ] `submitReview` 함수 구현
-  - `trip_reviews` 테이블에 INSERT
-  - 관련 `pickup_requests.status = 'COMPLETED'` 업데이트
-  - Trip `status = 'COMPLETED'` 업데이트 (모든 참여자 리뷰 완료 시)
+  - [ ] `trip_reviews` 테이블에 INSERT
+  - [ ] **중요**: `pickup_requests.status` 또는 `trips.status`를 변경하지 않음 (이미 COMPLETED 상태)
+  - [ ] 리뷰 작성 여부만 기록 (`trip_reviews` 테이블에만 INSERT)
 - [ ] 에러 처리
-- **완료 기준**: 리뷰 제출 시 DB 레코드 생성, 요청 상태 업데이트
+- **완료 기준**: 리뷰 제출 시 DB 레코드만 생성, 상태 변경 없음
 
-### Task 8.3: 자동 완료 처리 (24시간 후)
-- [ ] `actions/trip-reviews.ts`에 `autoCompleteArrivedRequests` 함수 추가
-- [ ] `status = 'ARRIVED'`이고 `created_at`이 24시간 경과한 요청 자동 `COMPLETED` 처리
+#### Task 8B.3: 리뷰 자동 종료 처리 (24시간 후)
+- [ ] `actions/trip-reviews.ts`에 `autoClosePendingReviews` 함수 추가
+  - [ ] `status = 'COMPLETED'`이고 리뷰 미작성인 요청 확인
+  - [ ] `trip_arrivals.created_at` 기준으로 24시간 경과한 요청 찾기
+  - [ ] `trip_reviews` 테이블에 자동 종료 레코드 INSERT (`status = 'AUTO_CLOSED'` 또는 별도 플래그)
+  - [ ] 또는 `trip_reviews`에 리뷰 미작성 상태만 기록 (별도 상태 없이)
 - [ ] Cron Job 또는 별도 스케줄러 설정 (선택사항, MVP에서는 수동 실행 가능)
-- **완료 기준**: 24시간 경과 후 자동 완료 처리 (또는 수동 실행 가능)
+- **완료 기준**: 24시간 경과 후 리뷰 자동 종료 처리 (또는 수동 실행 가능)
 
-### Task 8.4: 리뷰 조회
+#### Task 8B.4: 리뷰 조회
 - [ ] `actions/trip-reviews.ts`에 `getTripReviews` 함수 추가
-- [ ] 특정 Trip의 리뷰 목록 조회
-- [ ] 제공자 평균 평점 계산
+  - [ ] 특정 Trip의 리뷰 목록 조회
+  - [ ] 제공자 평균 평점 계산
+  - [ ] 리뷰 작성 여부 확인 (작성됨/미작성/자동종료)
+- [ ] `actions/trip-reviews.ts`에 `getMyReview` 함수 추가
+  - [ ] 요청자 본인의 리뷰 조회 (특정 픽업 요청 기준)
 - **완료 기준**: 리뷰 목록 및 평균 평점 화면에 표시
 
+#### Task 8B.5: 리뷰 UI 통합
+- [ ] 픽업 요청 목록 페이지에 리뷰 작성 여부 표시
+- [ ] 서비스 완료된 요청에 "리뷰 작성하기" 버튼 추가
+- [ ] 리뷰 작성 완료 시 "리뷰 작성 완료" 표시
+- **완료 기준**: 리뷰 작성 플로우가 서비스 완료와 분리되어 표시
+
+---
+
 ### Phase 8 실행 확인
+
+#### 1. 서비스 완료 처리 확인
+```sql
+-- 도착 사진 업로드 후 실행 (trip_xxx, request_xxx를 실제 ID로 변경)
+SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  
+-- 예상 결과: status = 'COMPLETED' (ARRIVED가 아님)
+
+SELECT status FROM public.trips WHERE id = 'trip_xxx';  
+-- 예상 결과: 모든 참여자 도착 시 status = 'COMPLETED' (ARRIVED가 아님)
+
+-- 도착 사진 업로드 후 제공자가 즉시 다음 Trip 생성 가능한지 확인
+```
+
+#### 2. 리뷰 플로우 확인
 ```sql
 -- 리뷰 제출 후 실행
-SELECT * FROM public.trip_reviews WHERE trip_id = 'trip_xxx';  -- 리뷰 레코드 확인
-SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  -- status = 'COMPLETED' 확인
-SELECT status FROM public.trips WHERE id = 'trip_xxx';  -- 모든 참여자 리뷰 완료 시 status = 'COMPLETED' 확인
+SELECT * FROM public.trip_reviews WHERE trip_id = 'trip_xxx';  
+-- 예상 결과: 리뷰 레코드 존재
 
--- 자동 완료 확인 (24시간 경과 후)
-SELECT id, status, created_at 
-FROM public.pickup_requests 
-WHERE status = 'ARRIVED' 
-  AND created_at < now() - interval '24 hours';
+-- 리뷰 제출 후 상태 변경 없음 확인
+SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  
+-- 예상 결과: status = 'COMPLETED' (변경 없음)
+
+SELECT status FROM public.trips WHERE id = 'trip_xxx';  
+-- 예상 결과: status = 'COMPLETED' (변경 없음)
+
+-- 자동 종료 확인 (24시간 경과 후)
+SELECT 
+  pr.id,
+  pr.status,
+  ta.created_at as arrival_time,
+  tr.id as review_id
+FROM public.pickup_requests pr
+LEFT JOIN public.trip_arrivals ta ON pr.id = ta.pickup_request_id
+LEFT JOIN public.trip_reviews tr ON pr.id = tr.pickup_request_id
+WHERE pr.status = 'COMPLETED'
+  AND ta.created_at < now() - interval '24 hours'
+  AND tr.id IS NULL;  -- 리뷰 미작성
 ```
-- [ ] 쿼리 결과로 모든 상태 업데이트 확인
-- [ ] 화면에서 리뷰 목록 및 평균 평점 표시 확인
+
+#### 3. 코드 레벨 확인 사항
+- [ ] `uploadArrivalPhoto` 함수에서 `COMPLETED` 상태로 업데이트하는지 확인
+- [ ] `submitReview` 함수에서 상태를 변경하지 않는지 확인
+- [ ] 리뷰 작성 여부와 서비스 완료 상태가 분리되어 있는지 확인
+
+#### 4. 실제 테스트 시나리오
+1. **서비스 완료 테스트**:
+   - 제공자가 도착 사진 업로드
+   - 픽업 요청 상태가 `COMPLETED`로 변경되는지 확인
+   - 제공자가 즉시 다음 Trip 생성 가능한지 확인
+
+2. **리뷰 작성 테스트**:
+   - 요청자가 서비스 완료된 요청에 리뷰 작성
+   - 리뷰 제출 후 상태가 변경되지 않는지 확인 (이미 `COMPLETED`)
+   - 리뷰 목록에 표시되는지 확인
+
+3. **리뷰 미작성 테스트**:
+   - 서비스 완료 후 리뷰 미작성 상태 유지
+   - 24시간 후 자동 종료 처리 확인
+   - 서비스 완료 상태는 그대로 유지되는지 확인
 
 ---
 

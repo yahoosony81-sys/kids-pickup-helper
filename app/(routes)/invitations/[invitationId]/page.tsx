@@ -297,10 +297,10 @@ export default async function InvitationDetailPage({
                   ? "오픈"
                   : trip?.status === "IN_PROGRESS"
                     ? "진행 중"
-                    : trip?.status === "ARRIVED"
-                      ? "도착"
-                      : trip?.status === "COMPLETED"
-                        ? "완료"
+                    : trip?.status === "COMPLETED"
+                      ? "완료"
+                      : trip?.status === "ARRIVED"
+                        ? "도착" // 기존 데이터 호환성 (Phase 8 이후에는 사용되지 않음)
                         : trip?.status === "CANCELLED"
                           ? "취소됨"
                           : trip?.status || "알 수 없음"}

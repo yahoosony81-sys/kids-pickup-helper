@@ -21,11 +21,14 @@
  */
 
 import { getTripById, getTripParticipants } from "@/actions/trips";
+import { getTripArrivals, checkArrivalPhoto } from "@/actions/trip-arrivals";
 import { StartTripButton } from "@/components/trips/start-trip-button";
+import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
+import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar } from "lucide-react";
+import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera } from "lucide-react";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +116,18 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     label: trip.status,
     className: "bg-gray-100 text-gray-800",
   };
+
+  // 도착 사진 존재 여부 확인 (LOCK된 경우만)
+  const arrivalPhotosMap: Record<string, string | null> = {};
+  if (trip.is_locked) {
+    await Promise.all(
+      participants.map(async (participant: any) => {
+        const pickupRequestId = participant.pickup_request_id;
+        const result = await checkArrivalPhoto(tripId, pickupRequestId);
+        arrivalPhotosMap[pickupRequestId] = result.data?.photoUrl || null;
+      })
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -237,20 +252,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                   className={`px-2 py-1 rounded-md text-xs font-medium ${
                                     pickupRequest.status === "IN_PROGRESS"
                                       ? "bg-yellow-100 text-yellow-800"
-                                      : pickupRequest.status === "ARRIVED"
-                                        ? "bg-purple-100 text-purple-800"
-                                        : pickupRequest.status === "COMPLETED"
-                                          ? "bg-gray-100 text-gray-800"
-                                          : "bg-blue-100 text-blue-800"
+                                      : pickupRequest.status === "COMPLETED"
+                                        ? "bg-gray-100 text-gray-800"
+                                        : "bg-blue-100 text-blue-800"
                                   }`}
                                 >
                                   {pickupRequest.status === "IN_PROGRESS"
                                     ? "진행중"
-                                    : pickupRequest.status === "ARRIVED"
-                                      ? "도착"
-                                      : pickupRequest.status === "COMPLETED"
-                                        ? "완료"
-                                        : "매칭됨"}
+                                    : pickupRequest.status === "COMPLETED"
+                                      ? "완료"
+                                      : "매칭됨"}
                                 </span>
                               )}
                             </div>
@@ -286,6 +297,22 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                 </div>
                               </div>
                             </>
+                          )}
+
+                          {/* 도착 사진 업로드 (LOCK된 경우만, 제공자만) */}
+                          {trip.is_locked && (
+                            <div className="mt-4 pt-4 border-t">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Camera className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">도착 사진</span>
+                              </div>
+                              <UploadArrivalPhoto
+                                tripId={tripId}
+                                pickupRequestId={pickupRequest.id}
+                                isAlreadyUploaded={!!arrivalPhotosMap[pickupRequest.id]}
+                                existingPhotoUrl={arrivalPhotosMap[pickupRequest.id]}
+                              />
+                            </div>
                           )}
                         </div>
                       </CardContent>
@@ -326,6 +353,39 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </CardTitle>
               <CardDescription>
                 이 Trip은 이미 출발했습니다. 추가 초대나 초대 수락이 불가능합니다.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+
+        {/* 도착 사진 조회 섹션 (LOCK된 경우만) */}
+        {trip.is_locked && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                도착 사진 목록
+              </CardTitle>
+              <CardDescription>
+                모든 참여자의 도착 사진을 확인할 수 있습니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ArrivalPhotoViewer tripId={tripId} viewerRole="provider" />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 모든 참여자 도착 완료 메시지 */}
+        {trip.status === "COMPLETED" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-600" />
+                모든 참여자가 도착했습니다
+              </CardTitle>
+              <CardDescription>
+                모든 참여자의 도착 사진이 업로드되었습니다. 서비스가 완료되었습니다.
               </CardDescription>
             </CardHeader>
           </Card>
