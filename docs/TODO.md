@@ -941,45 +941,151 @@ SELECT status FROM public.trips WHERE id = 'trip_xxx';
 ### Part B: 리뷰 플로우 (선택 사항, 서비스 완료와 분리)
 
 #### Task 8B.1: 리뷰 작성 UI
-- [ ] `app/(routes)/pickup-requests/[requestId]/review/page.tsx` 생성
-  - [ ] 요청자 전용 페이지 (픽업 요청 기준)
-  - [ ] 리뷰 폼 (평점 1~5, 코멘트)
-  - [ ] `status = 'COMPLETED'`인 요청만 리뷰 가능
-  - [ ] 리뷰 작성 여부 표시 (이미 작성한 경우 수정 불가 또는 별도 처리)
+- [x] `app/(routes)/pickup-requests/[requestId]/review/page.tsx` 생성
+  - [x] 요청자 전용 페이지 (픽업 요청 기준)
+  - [x] 리뷰 폼 (평점 1~5, 코멘트)
+  - [x] `status = 'COMPLETED'`인 요청만 리뷰 가능
+  - [x] 리뷰 작성 여부 표시 (이미 작성한 경우 수정 불가 또는 별도 처리)
 - **완료 기준**: 리뷰 작성 폼 표시 및 제출 가능
 
 #### Task 8B.2: 리뷰 제출 Server Action
-- [ ] `actions/trip-reviews.ts` 생성
-- [ ] `submitReview` 함수 구현
-  - [ ] `trip_reviews` 테이블에 INSERT
-  - [ ] **중요**: `pickup_requests.status` 또는 `trips.status`를 변경하지 않음 (이미 COMPLETED 상태)
-  - [ ] 리뷰 작성 여부만 기록 (`trip_reviews` 테이블에만 INSERT)
-- [ ] 에러 처리
+- [x] `actions/trip-reviews.ts` 생성
+- [x] `submitReview` 함수 구현
+  - [x] `trip_reviews` 테이블에 INSERT
+  - [x] **중요**: `pickup_requests.status` 또는 `trips.status`를 변경하지 않음 (이미 COMPLETED 상태)
+  - [x] 리뷰 작성 여부만 기록 (`trip_reviews` 테이블에만 INSERT)
+- [x] 에러 처리
 - **완료 기준**: 리뷰 제출 시 DB 레코드만 생성, 상태 변경 없음
 
 #### Task 8B.3: 리뷰 자동 종료 처리 (24시간 후)
-- [ ] `actions/trip-reviews.ts`에 `autoClosePendingReviews` 함수 추가
-  - [ ] `status = 'COMPLETED'`이고 리뷰 미작성인 요청 확인
-  - [ ] `trip_arrivals.created_at` 기준으로 24시간 경과한 요청 찾기
-  - [ ] `trip_reviews` 테이블에 자동 종료 레코드 INSERT (`status = 'AUTO_CLOSED'` 또는 별도 플래그)
-  - [ ] 또는 `trip_reviews`에 리뷰 미작성 상태만 기록 (별도 상태 없이)
-- [ ] Cron Job 또는 별도 스케줄러 설정 (선택사항, MVP에서는 수동 실행 가능)
+- [x] `actions/trip-reviews.ts`에 `autoClosePendingReviews` 함수 추가
+  - [x] `status = 'COMPLETED'`이고 리뷰 미작성인 요청 확인
+  - [x] `trip_arrivals.created_at` 기준으로 24시간 경과한 요청 찾기
+  - [x] 레코드 생성 안 함 (리뷰 미작성 상태는 레코드 없음으로 간주)
+  - [x] 로깅만 수행 (통계/모니터링 목적)
+- [x] 수동 실행 가능 (MVP에서는 Cron Job 설정 없음)
 - **완료 기준**: 24시간 경과 후 리뷰 자동 종료 처리 (또는 수동 실행 가능)
 
 #### Task 8B.4: 리뷰 조회
-- [ ] `actions/trip-reviews.ts`에 `getTripReviews` 함수 추가
-  - [ ] 특정 Trip의 리뷰 목록 조회
-  - [ ] 제공자 평균 평점 계산
-  - [ ] 리뷰 작성 여부 확인 (작성됨/미작성/자동종료)
-- [ ] `actions/trip-reviews.ts`에 `getMyReview` 함수 추가
-  - [ ] 요청자 본인의 리뷰 조회 (특정 픽업 요청 기준)
+- [x] `actions/trip-reviews.ts`에 `getTripReviews` 함수 추가
+  - [x] 특정 Trip의 리뷰 목록 조회
+  - [x] 제공자 평균 평점 계산
+  - [x] 리뷰 작성 여부 확인 (작성됨/미작성)
+- [x] `actions/trip-reviews.ts`에 `getMyReview` 함수 추가
+  - [x] 요청자 본인의 리뷰 조회 (특정 픽업 요청 기준)
 - **완료 기준**: 리뷰 목록 및 평균 평점 화면에 표시
 
 #### Task 8B.5: 리뷰 UI 통합
-- [ ] 픽업 요청 목록 페이지에 리뷰 작성 여부 표시
-- [ ] 서비스 완료된 요청에 "리뷰 작성하기" 버튼 추가
-- [ ] 리뷰 작성 완료 시 "리뷰 작성 완료" 표시
+- [x] 픽업 요청 목록 페이지에 리뷰 작성 여부 표시
+- [x] 서비스 완료된 요청에 "리뷰 작성하기" 버튼 추가
+- [x] 리뷰 작성 완료 시 "리뷰 작성 완료" 표시
 - **완료 기준**: 리뷰 작성 플로우가 서비스 완료와 분리되어 표시
+
+---
+
+### Part B Plan Mode Build 상세 작업 내역
+
+#### Zod 스키마 정의
+- [x] `lib/validations/trip-review.ts` 생성
+- [x] `tripReviewSchema` 정의 (rating 1~5, comment 선택사항)
+- [x] TypeScript 타입 정의 (`TripReviewFormData`)
+
+#### Server Actions 구현
+- [x] `actions/trip-reviews.ts` 생성
+- [x] `submitReview` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 픽업 요청 조회 및 소유자 확인
+  - [x] 픽업 요청 상태 확인 (`status = 'COMPLETED'`)
+  - [x] 중복 리뷰 방지 (이미 리뷰 작성 여부 확인)
+  - [x] Trip ID 및 제공자 Profile ID 조회 (`trip_participants` JOIN)
+  - [x] `trip_reviews` 테이블에 INSERT
+  - [x] **중요**: 상태 변경 없음 (이미 COMPLETED 상태 유지)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+- [x] `getMyReview` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 픽업 요청 조회 및 소유자 확인
+  - [x] `trip_reviews` 조회 (해당 픽업 요청 기준)
+  - [x] 리뷰 작성 여부 반환 (있음/없음)
+  - [x] 에러 처리
+- [x] `getTripReviews` 함수 구현
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회
+  - [x] Trip 조회 및 권한 확인 (제공자 또는 참여자만 조회 가능)
+  - [x] `trip_reviews` 조회 (Trip 기준)
+  - [x] 제공자 평균 평점 계산
+  - [x] 리뷰 목록 반환 (평점, 코멘트, 작성자 정보)
+  - [x] 에러 처리
+- [x] `autoClosePendingReviews` 함수 구현
+  - [x] `status = 'COMPLETED'`이고 리뷰 미작성인 요청 확인
+  - [x] `trip_arrivals.created_at` 기준으로 24시간 경과한 요청 찾기
+  - [x] 레코드 생성 안 함 (리뷰 미작성 상태는 레코드 없음으로 간주)
+  - [x] 로깅만 수행 (통계/모니터링 목적)
+
+#### 리뷰 작성 페이지 UI
+- [x] `app/(routes)/pickup-requests/[requestId]/review/page.tsx` 생성
+  - [x] Server Component로 구현
+  - [x] `dynamic = 'force-dynamic'` 추가
+  - [x] `getPickupRequestById` Server Action 호출 (픽업 요청 조회)
+  - [x] `getMyReview` Server Action 호출 (리뷰 작성 여부 확인)
+  - [x] 픽업 요청 소유자 확인 및 에러 처리
+  - [x] 픽업 요청 상태 확인 (`status = 'COMPLETED'`만 허용)
+  - [x] Trip ID 및 제공자 Profile ID 조회
+  - [x] 리뷰 작성 여부에 따른 분기:
+    - [x] 이미 작성한 경우: "리뷰 작성 완료" 메시지 표시, 수정 불가 안내
+    - [x] 미작성인 경우: 리뷰 작성 폼 표시
+  - [x] 에러 처리 (요청 없음, 소유자 아님, 상태 불일치 등)
+  - [x] "픽업 요청 목록으로" 버튼 제공
+
+#### 리뷰 작성 폼 컴포넌트
+- [x] `components/trip-reviews/review-form.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] React Hook Form + Zod resolver 사용
+  - [x] 평점 입력 (별점 UI, 1~5 클릭 선택)
+  - [x] 코멘트 입력 (textarea, 선택사항)
+  - [x] shadcn/ui Form 컴포넌트 사용
+  - [x] `SubmitReviewButton` 컴포넌트 연결
+
+#### 리뷰 제출 버튼 컴포넌트
+- [x] `components/trip-reviews/submit-review-button.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] `submitReview` Server Action 호출
+  - [x] 로딩 상태 관리
+  - [x] 에러 메시지 표시
+  - [x] 유효성 검사 (평점 필수)
+  - [x] 성공 시 목록 페이지로 리다이렉트
+
+#### 픽업 요청 조회 Server Action 추가
+- [x] `actions/pickup-requests.ts`에 `getPickupRequestById` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회
+  - [x] 픽업 요청 조회 및 소유자 확인
+  - [x] 에러 처리
+
+#### 픽업 요청 목록 페이지 수정
+- [x] `app/(routes)/pickup-requests/page.tsx` 수정
+  - [x] `getMyReview` Server Action import
+  - [x] 각 요청 카드에 리뷰 작성 여부 표시:
+    - [x] `status = 'COMPLETED'`인 요청만 처리
+    - [x] 리뷰 작성 여부 확인 (Server Component에서 병렬 처리)
+    - [x] **리뷰 미작성**: "리뷰 작성하기" 버튼 표시 (`/pickup-requests/[requestId]/review` 링크)
+    - [x] **리뷰 작성 완료**: "리뷰 작성 완료" 배지/텍스트 표시
+  - [x] 리뷰 작성 버튼 스타일: 초록색 Primary 버튼
+  - [x] Star 아이콘 사용 (lucide-react)
+
+#### Trip 상세 페이지 리뷰 목록 표시
+- [x] `app/(routes)/trips/[tripId]/page.tsx` 수정
+  - [x] `getTripReviews` Server Action import
+  - [x] 제공자 평균 평점 표시 (카드 형태, COMPLETED 상태일 때만)
+  - [x] 리뷰 목록 섹션 추가 (Trip 상태가 `COMPLETED`일 때만 표시)
+  - [x] 각 리뷰 카드에 표시:
+    - [x] 평점 (별점 표시)
+    - [x] 코멘트
+    - [x] 작성 일시
+  - [x] 빈 리뷰 목록 처리
 
 ---
 
@@ -1011,23 +1117,34 @@ SELECT status FROM public.trips WHERE id = 'trip_xxx';
 -- 예상 결과: status = 'COMPLETED' (변경 없음)
 
 -- 자동 종료 확인 (24시간 경과 후)
+-- 참고: 리뷰 미작성 상태는 trip_reviews 레코드 없음으로 간주 (별도 레코드 생성 안 함)
 SELECT 
   pr.id,
   pr.status,
   ta.created_at as arrival_time,
-  tr.id as review_id
+  tr.id as review_id,
+  CASE 
+    WHEN tr.id IS NULL THEN '리뷰 미작성 (24시간 경과 시 자동 종료)'
+    ELSE '리뷰 작성됨'
+  END as review_status
 FROM public.pickup_requests pr
 LEFT JOIN public.trip_arrivals ta ON pr.id = ta.pickup_request_id
 LEFT JOIN public.trip_reviews tr ON pr.id = tr.pickup_request_id
 WHERE pr.status = 'COMPLETED'
   AND ta.created_at < now() - interval '24 hours'
-  AND tr.id IS NULL;  -- 리뷰 미작성
+  AND tr.id IS NULL;  -- 리뷰 미작성 (레코드 없음)
 ```
 
 #### 3. 코드 레벨 확인 사항
-- [ ] `uploadArrivalPhoto` 함수에서 `COMPLETED` 상태로 업데이트하는지 확인
-- [ ] `submitReview` 함수에서 상태를 변경하지 않는지 확인
-- [ ] 리뷰 작성 여부와 서비스 완료 상태가 분리되어 있는지 확인
+- [x] `uploadArrivalPhoto` 함수에서 `COMPLETED` 상태로 업데이트하는지 확인
+  - 코드 위치: `actions/trip-arrivals.ts` 223줄, 264줄
+  - 업데이트 내용: `pickup_requests.status = 'COMPLETED'`, `trips.status = 'COMPLETED'` (모든 참여자 도착 시)
+- [x] `submitReview` 함수에서 상태를 변경하지 않는지 확인
+  - 코드 위치: `actions/trip-reviews.ts` 42-231줄
+  - 확인 내용: `trip_reviews` 테이블에만 INSERT, `pickup_requests.status` 또는 `trips.status` 변경 없음
+- [x] 리뷰 작성 여부와 서비스 완료 상태가 분리되어 있는지 확인
+  - 서비스 완료: `uploadArrivalPhoto`에서 도착 사진 업로드 시 즉시 `COMPLETED` 상태로 전환
+  - 리뷰 작성: `submitReview`에서 상태 변경 없이 `trip_reviews`에만 INSERT
 
 #### 4. 실제 테스트 시나리오
 1. **서비스 완료 테스트**:

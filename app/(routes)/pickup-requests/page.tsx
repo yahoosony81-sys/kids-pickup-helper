@@ -21,10 +21,11 @@
  */
 
 import { getMyPickupRequests } from "@/actions/pickup-requests";
+import { getMyReview } from "@/actions/trip-reviews";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, MapPin } from "lucide-react";
+import { Plus, MapPin, Star, CheckCircle2 } from "lucide-react";
 // 날짜 포맷팅 유틸리티 함수
 function formatDateTime(dateString: string): string {
   const date = new Date(dateString);
@@ -111,56 +112,84 @@ export default async function PickupRequestsPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {pickupRequests.map((request: any) => {
-            const statusInfo = statusConfig[request.status] || {
-              label: request.status,
-              className: "bg-gray-100 text-gray-800",
-            };
+          {await Promise.all(
+            pickupRequests.map(async (request: any) => {
+              const statusInfo = statusConfig[request.status] || {
+                label: request.status,
+                className: "bg-gray-100 text-gray-800",
+              };
 
-            return (
-              <Card key={request.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">
-                        {formatDateTime(request.pickup_time)}
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        {formatDateTimeShort(request.created_at)}
-                      </CardDescription>
-                    </div>
-                    <span
-                      className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
-                    >
-                      {statusInfo.label}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+              // COMPLETED 상태인 요청에 대해 리뷰 작성 여부 확인
+              let hasReview = false;
+              if (request.status === "COMPLETED") {
+                const reviewResult = await getMyReview(request.id);
+                hasReview = reviewResult.success && reviewResult.data !== null;
+              }
+
+              return (
+                <Card key={request.id}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <p className="text-sm font-medium">출발지</p>
-                        <p className="text-sm text-muted-foreground">
-                          {request.origin_text}
-                        </p>
+                        <CardTitle className="text-lg">
+                          {formatDateTime(request.pickup_time)}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          {formatDateTimeShort(request.created_at)}
+                        </CardDescription>
                       </div>
+                      <span
+                        className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
+                      >
+                        {statusInfo.label}
+                      </span>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">목적지</p>
-                        <p className="text-sm text-muted-foreground">
-                          {request.destination_text}
-                        </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">출발지</p>
+                          <p className="text-sm text-muted-foreground">
+                            {request.origin_text}
+                          </p>
+                        </div>
                       </div>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">목적지</p>
+                          <p className="text-sm text-muted-foreground">
+                            {request.destination_text}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 리뷰 작성 여부 표시 (COMPLETED 상태인 경우만) */}
+                      {request.status === "COMPLETED" && (
+                        <div className="pt-3 border-t">
+                          {hasReview ? (
+                            <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="text-sm font-medium">리뷰 작성 완료</span>
+                            </div>
+                          ) : (
+                            <Button asChild className="w-full bg-green-600 hover:bg-green-700">
+                              <Link href={`/pickup-requests/${request.id}/review`}>
+                                <Star className="mr-2 h-4 w-4" />
+                                리뷰 작성하기
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
       )}
     </div>

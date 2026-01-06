@@ -169,6 +169,82 @@ export async function getMyPickupRequests(status?: string) {
 }
 
 /**
+ * 픽업 요청 조회
+ * 
+ * 특정 픽업 요청을 조회합니다. 요청자만 자신의 요청을 조회할 수 있습니다.
+ * 
+ * @param pickupRequestId - 픽업 요청 ID
+ * @returns 성공/실패 결과 및 픽업 요청 데이터
+ */
+export async function getPickupRequestById(pickupRequestId: string) {
+  try {
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: null,
+      };
+    }
+
+    // 2. Profile ID 조회
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("Profile 조회 실패:", profileError);
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+        data: null,
+      };
+    }
+
+    // 3. 픽업 요청 조회
+    const { data: pickupRequest, error: requestError } = await supabase
+      .from("pickup_requests")
+      .select("*")
+      .eq("id", pickupRequestId)
+      .single();
+
+    if (requestError || !pickupRequest) {
+      console.error("픽업 요청 조회 실패:", requestError);
+      return {
+        success: false,
+        error: "픽업 요청을 찾을 수 없습니다.",
+        data: null,
+      };
+    }
+
+    // 4. 소유자 확인
+    if (pickupRequest.requester_profile_id !== profile.id) {
+      return {
+        success: false,
+        error: "본인의 픽업 요청만 조회할 수 있습니다.",
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      data: pickupRequest,
+    };
+  } catch (error) {
+    console.error("getPickupRequestById 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
+      data: null,
+    };
+  }
+}
+
+/**
  * 초대 가능한 요청자 리스트 조회
  * 
  * 제공자가 초대할 수 있는 요청자 리스트를 조회합니다.

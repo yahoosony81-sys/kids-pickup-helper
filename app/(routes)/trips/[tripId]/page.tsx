@@ -22,13 +22,14 @@
 
 import { getTripById, getTripParticipants } from "@/actions/trips";
 import { getTripArrivals, checkArrivalPhoto } from "@/actions/trip-arrivals";
+import { getTripReviews } from "@/actions/trip-reviews";
 import { StartTripButton } from "@/components/trips/start-trip-button";
 import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
 import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus } from "lucide-react";
+import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus, Star } from "lucide-react";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
   // 2. 참여자 목록 조회
   const participantsResult = await getTripParticipants(tripId);
+
+  // 3. 리뷰 목록 조회 (COMPLETED 상태일 때만)
+  let reviewsData = null;
+  if (trip.status === "COMPLETED") {
+    const reviewsResult = await getTripReviews(tripId);
+    if (reviewsResult.success && reviewsResult.data) {
+      reviewsData = reviewsResult.data;
+    }
+  }
 
   if (!participantsResult.success) {
     return (
@@ -414,6 +424,81 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   다음 Trip 생성하기
                 </Link>
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 리뷰 목록 섹션 (COMPLETED 상태일 때만) */}
+        {trip.status === "COMPLETED" && reviewsData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-500" />
+                리뷰 목록
+              </CardTitle>
+              <CardDescription>
+                이 Trip에 대한 요청자들의 리뷰를 확인할 수 있습니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 평균 평점 표시 */}
+              {reviewsData.reviewCount > 0 && (
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                    <span className="text-2xl font-bold text-yellow-800 dark:text-yellow-200">
+                      {reviewsData.averageRating.toFixed(1)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      / 5.0 ({reviewsData.reviewCount}개 리뷰)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 리뷰 목록 */}
+              {reviewsData.reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {reviewsData.reviews.map((review: any) => (
+                    <Card key={review.id} className="border-l-4 border-l-yellow-400">
+                      <CardContent className="pt-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${
+                                    star <= review.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              ))}
+                              <span className="ml-2 text-sm font-medium">
+                                {review.rating}점
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDateTime(review.created_at)}
+                            </span>
+                          </div>
+                          {review.comment && (
+                            <p className="text-sm text-muted-foreground">
+                              {review.comment}
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Star className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>아직 작성된 리뷰가 없습니다.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
