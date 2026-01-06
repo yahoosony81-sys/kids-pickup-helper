@@ -5,9 +5,10 @@
  * 주요 기능:
  * 1. 초대 전송 (sendInvitation)
  * 2. Trip별 초대 목록 조회 (getTripInvitations)
- * 3. 초대 조회 (getInvitationById)
- * 4. 초대 수락 (acceptInvitation)
- * 5. 초대 거절 (rejectInvitation)
+ * 3. 요청별 초대 목록 조회 (getInvitationsForRequest)
+ * 4. 초대 조회 (getInvitationById)
+ * 5. 초대 수락 (acceptInvitation)
+ * 6. 초대 거절 (rejectInvitation)
  *
  * 핵심 구현 로직:
  * - Clerk 인증 확인
@@ -27,7 +28,7 @@
 
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -468,6 +469,245 @@ export async function getTripInvitations(tripId: string, status?: string) {
     };
   } catch (error) {
     console.error("❌ getTripInvitations 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
+      data: [],
+    };
+  }
+}
+
+/**
+ * 요청에 대한 초대 목록 조회
+ * 
+ * 특정 픽업 요청에 대한 초대 목록을 조회합니다.
+ * 요청자만 자신의 요청에 대한 초대를 조회할 수 있습니다.
+ * 제공자 프로필 정보(이름, 사진, 한줄소개)를 포함하여 반환합니다.
+ * 
+ * @param requestId - 픽업 요청 ID
+ * @returns 초대 목록 및 제공자 프로필 정보
+ */
+export async function getInvitationsForRequest(requestId: string) {
+  try {
+    console.group("📋 [요청 초대 목록 조회] 시작");
+    console.log("1️⃣ Request ID:", requestId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: [],
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회 (요청자)
+    const supabase = createClerkSupabaseClient();
+    const { data: requesterProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !requesterProfile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ 요청자 Profile 조회 완료:", { profileId: requesterProfile.id });
+
+    // 3. 픽업 요청 조회 및 소유자 확인
+    const { data: pickupRequest, error: requestError } = await supabase
+      .from("pickup_requests")
+      .select("id, requester_profile_id")
+      .eq("id", requestId)
+      .single();
+
+    if (requestError || !pickupRequest) {
+      console.error("❌ 픽업 요청 조회 실패:", requestError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "픽업 요청을 찾을 수 없습니다.",
+        data: [],
+      };
+    }
+
+    // 4. 요청자 본인 확인
+    if (pickupRequest.requester_profile_id !== requesterProfile.id) {
+      console.error("❌ 요청 소유자가 아님:", {
+        requestRequesterId: pickupRequest.requester_profile_id,
+        currentProfileId: requesterProfile.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 요청에 대한 접근 권한이 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ 요청 소유자 확인 완료");
+
+    // 5. 만료된 PENDING 초대 자동 EXPIRED 처리
+    const now = new Date();
+    const { error: expireError } = await supabase
+      .from("invitations")
+      .update({
+        status: "EXPIRED",
+        responded_at: now.toISOString(),
+      })
+      .eq("pickup_request_id", requestId)
+      .eq("status", "PENDING")
+      .lt("expires_at", now.toISOString());
+
+    if (expireError) {
+      console.error("❌ 만료된 초대 업데이트 실패:", expireError);
+    } else {
+      console.log("✅ 만료된 초대 EXPIRED 처리 완료");
+    }
+
+    // 6. 초대 목록 조회 (제공자 프로필 정보 포함)
+    const { data: invitations, error: selectError } = await supabase
+      .from("invitations")
+      .select(
+        `
+        id,
+        status,
+        expires_at,
+        responded_at,
+        created_at,
+        provider_profile_id,
+        provider_profile:profiles!provider_profile_id(
+          clerk_user_id
+        )
+        `
+      )
+      .eq("pickup_request_id", requestId)
+      .eq("requester_profile_id", requesterProfile.id)
+      .order("created_at", { ascending: false });
+
+    if (selectError) {
+      console.error("❌ 초대 목록 조회 실패:", selectError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대 목록을 불러오는데 실패했습니다.",
+        data: [],
+      };
+    }
+
+    console.log("✅ 초대 목록 조회 완료:", {
+      count: invitations?.length || 0,
+    });
+
+    // 7. 제공자 프로필 정보 조회 (Clerk API)
+    const clerk = await clerkClient();
+    const invitationsWithProvider = await Promise.all(
+      (invitations || []).map(async (invitation: any) => {
+        const providerProfile = invitation.provider_profile;
+        if (!providerProfile?.clerk_user_id) {
+          console.warn("⚠️ 제공자 프로필 정보 없음:", invitation.id);
+          return {
+            id: invitation.id,
+            status: invitation.status,
+            provider_profile_id: invitation.provider_profile_id,
+            provider: {
+              name: "이름 없음",
+              imageUrl: null,
+              bio: null,
+            },
+            created_at: invitation.created_at,
+            expires_at: invitation.expires_at,
+          };
+        }
+
+        try {
+          const providerUser = await clerk.users.getUser(providerProfile.clerk_user_id);
+          const providerInfo = {
+            name:
+              providerUser.fullName ||
+              [providerUser.firstName, providerUser.lastName]
+                .filter(Boolean)
+                .join(" ") ||
+              "이름 없음",
+            imageUrl: providerUser.imageUrl,
+            bio:
+              (providerUser.publicMetadata?.bio as string) ||
+              (providerUser.publicMetadata?.introduction as string) ||
+              null,
+          };
+
+          console.log("✅ 제공자 프로필 조회 완료:", {
+            invitationId: invitation.id,
+            providerName: providerInfo.name,
+          });
+
+          return {
+            id: invitation.id,
+            status: invitation.status,
+            provider_profile_id: invitation.provider_profile_id,
+            provider: providerInfo,
+            created_at: invitation.created_at,
+            expires_at: invitation.expires_at,
+          };
+        } catch (clerkError) {
+          console.error("❌ Clerk 사용자 조회 실패:", clerkError);
+          return {
+            id: invitation.id,
+            status: invitation.status,
+            provider_profile_id: invitation.provider_profile_id,
+            provider: {
+              name: "이름 없음",
+              imageUrl: null,
+              bio: null,
+            },
+            created_at: invitation.created_at,
+            expires_at: invitation.expires_at,
+          };
+        }
+      })
+    );
+
+    // 8. 상태별 정렬 (PENDING 우선)
+    const statusOrder: Record<string, number> = {
+      PENDING: 1,
+      ACCEPTED: 2,
+      REJECTED: 3,
+      EXPIRED: 4,
+    };
+
+    const sortedInvitations = invitationsWithProvider.sort((a, b) => {
+      const statusA = statusOrder[a.status] || 99;
+      const statusB = statusOrder[b.status] || 99;
+      if (statusA !== statusB) {
+        return statusA - statusB;
+      }
+      // 같은 상태면 최신순
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+
+    console.log("✅ 초대 목록 처리 완료:", {
+      total: sortedInvitations.length,
+      statuses: sortedInvitations.map((inv) => inv.status),
+    });
+    console.groupEnd();
+
+    return {
+      success: true,
+      data: sortedInvitations,
+    };
+  } catch (error) {
+    console.error("❌ getInvitationsForRequest 에러:", error);
     return {
       success: false,
       error: "예상치 못한 오류가 발생했습니다.",

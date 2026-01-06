@@ -127,17 +127,17 @@ export default async function PickupRequestsPage() {
               }
 
               return (
-                <Card key={request.id}>
+                <Card key={request.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">
+                      <Link href={`/pickup-requests/${request.id}`} className="flex-1">
+                        <CardTitle className="text-lg hover:text-primary transition-colors">
                           {formatDateTime(request.pickup_time)}
                         </CardTitle>
                         <CardDescription className="mt-1">
                           {formatDateTimeShort(request.created_at)}
                         </CardDescription>
-                      </div>
+                      </Link>
                       <span
                         className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
                       >
