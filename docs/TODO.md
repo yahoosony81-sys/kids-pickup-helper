@@ -460,35 +460,114 @@ ORDER BY requester_profile_id, status;
 ## Phase 5: 초대 수락 → Trip 참여 확정 (trip_participants)
 
 ### Task 5.1: 초대 수락/거절 UI
-- [ ] `app/(routes)/invitations/[invitationId]/page.tsx` 생성
-- [ ] 초대 상세 정보 표시 (초대 수락 후 정확한 주소/좌표 공개)
-- [ ] 수락/거절 버튼
+- [x] `app/(routes)/invitations/[invitationId]/page.tsx` 생성
+- [x] 초대 상세 정보 표시 (초대 수락 후 정확한 주소/좌표 공개)
+- [x] 수락/거절 버튼
 - **완료 기준**: 초대 상세 페이지 접근 및 정보 표시
 
 ### Task 5.2: 초대 수락 Server Action
-- [ ] `actions/invitations.ts`에 `acceptInvitation` 함수 추가
-- [ ] **서버 검증 필수**:
-  - 초대 `status = 'PENDING'` 확인
-  - `expires_at` 만료 여부 확인
-  - Trip `is_locked = false` 확인
-  - Trip `capacity` 초과 여부 확인 (`trip_participants` COUNT)
-  - 요청자 PENDING 초대 1개 조건 (DB unique index 활용)
-- [ ] 트랜잭션 처리:
-  1. `invitations.status = 'ACCEPTED'`, `responded_at` 업데이트
-  2. `trip_participants`에 INSERT
-  3. `pickup_requests.status = 'MATCHED'` 업데이트
-- [ ] 에러 처리 (제약 위반 시 명확한 에러 메시지)
+- [x] `actions/invitations.ts`에 `acceptInvitation` 함수 추가
+- [x] **서버 검증 필수**:
+  - [x] 초대 `status = 'PENDING'` 확인
+  - [x] `expires_at` 만료 여부 확인
+  - [x] Trip `is_locked = false` 확인
+  - [x] Trip `capacity` 초과 여부 확인 (`trip_participants` COUNT)
+  - [x] 요청자 PENDING 초대 1개 조건 (DB unique index 활용)
+- [x] 트랜잭션 처리:
+  1. [x] `invitations.status = 'ACCEPTED'`, `responded_at` 업데이트
+  2. [x] `trip_participants`에 INSERT
+  3. [x] `pickup_requests.status = 'MATCHED'` 업데이트
+- [x] 에러 처리 (제약 위반 시 명확한 에러 메시지)
 - **완료 기준**: 초대 수락 시 모든 관련 레코드 업데이트, 제약 위반 시 에러 반환
 
 ### Task 5.3: 초대 거절 Server Action
-- [ ] `actions/invitations.ts`에 `rejectInvitation` 함수 추가
-- [ ] `invitations.status = 'REJECTED'`, `responded_at` 업데이트
+- [x] `actions/invitations.ts`에 `rejectInvitation` 함수 추가
+- [x] `invitations.status = 'REJECTED'`, `responded_at` 업데이트
 - **완료 기준**: 초대 거절 시 상태 업데이트
 
 ### Task 5.4: Trip 참여자 목록 조회
-- [ ] `actions/trips.ts`에 `getTripParticipants` 함수 추가
-- [ ] 특정 Trip의 참여자 목록 조회
+- [x] `actions/trips.ts`에 `getTripParticipants` 함수 추가
+- [x] 특정 Trip의 참여자 목록 조회
 - **완료 기준**: Trip 상세 페이지에서 참여자 목록 표시
+
+---
+
+### Phase 5 Plan Mode Build 상세 작업 내역
+
+#### Server Actions 구현
+- [x] `actions/invitations.ts`에 `getInvitationById` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 초대 조회 및 소유자 확인
+  - [x] 픽업 요청 정보 JOIN (초대 수락 후 정확한 주소/좌표 포함)
+  - [x] Trip 정보 JOIN (제공자 정보는 제외)
+  - [x] 만료된 PENDING 초대 자동 EXPIRED 처리
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+
+- [x] `actions/invitations.ts`에 `acceptInvitation` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 초대 조회 및 소유자 확인
+  - [x] 초대 `status = 'PENDING'` 확인
+  - [x] `expires_at` 만료 여부 확인
+  - [x] Trip 조회 및 `is_locked = false` 확인
+  - [x] Trip `capacity` 초과 여부 확인 (`trip_participants` COUNT)
+  - [x] 요청자 PENDING 초대 1개 조건 확인 (DB unique index 활용)
+  - [x] 트랜잭션 처리:
+    1. [x] `invitations.status = 'ACCEPTED'`, `responded_at` 업데이트
+    2. [x] `trip_participants`에 INSERT (sequence_order 포함)
+    3. [x] `pickup_requests.status = 'MATCHED'` 업데이트
+  - [x] 에러 발생 시 롤백 처리
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+
+- [x] `actions/invitations.ts`에 `rejectInvitation` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 초대 조회 및 소유자 확인
+  - [x] 초대 `status = 'PENDING'` 확인
+  - [x] `expires_at` 만료 여부 확인 (만료된 초대도 거절 가능)
+  - [x] `invitations.status = 'REJECTED'`, `responded_at` 업데이트
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+
+- [x] `actions/trips.ts`에 `getTripParticipants` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회
+  - [x] Trip 조회 및 소유자 확인 (제공자만 조회 가능)
+  - [x] `trip_participants` 조회 (픽업 요청 정보 JOIN)
+  - [x] 참여자 목록 반환 (sequence_order 포함)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+
+#### 초대 수락/거절 버튼 컴포넌트 생성
+- [x] `components/invitations/accept-reject-buttons.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] `acceptInvitation`, `rejectInvitation` Server Action 호출
+  - [x] 로딩 상태 관리
+  - [x] 에러 메시지 표시
+  - [x] 성공 시 페이지 새로고침 (router.refresh)
+  - [x] PENDING 상태가 아니면 버튼 표시 안 함
+  - [x] 만료된 초대 처리
+
+#### 초대 상세 페이지 UI 생성
+- [x] `app/(routes)/invitations/[invitationId]/page.tsx` 생성
+  - [x] Server Component로 구현
+  - [x] `dynamic = 'force-dynamic'` 추가
+  - [x] `getInvitationById` Server Action import 및 호출
+  - [x] 초대 소유자 확인 및 에러 처리
+  - [x] 초대 상세 정보 표시:
+    - [x] 초대 상태 배지 (PENDING, ACCEPTED, REJECTED, EXPIRED)
+    - [x] 초대 일시, 만료 시간, 응답 일시
+    - [x] 픽업 요청 정보 (초대 수락 후 정확한 주소/좌표 공개 - PRD 규칙)
+    - [x] Trip 정보 (제공자 정보는 제외)
+  - [x] `AcceptRejectButtons` 컴포넌트 연결 (PENDING 상태일 때만 표시)
+  - [x] 초대 상태별 메시지 표시
+  - [x] 에러 처리 (초대 없음, 만료됨, 이미 응답함 등)
+  - [x] "픽업 요청 목록으로" 버튼 제공
 
 ### Phase 5 실행 확인
 ```sql
@@ -499,8 +578,8 @@ SELECT status FROM public.pickup_requests WHERE id = 'request_xxx';  -- status =
 
 -- capacity 초과 수락 시도 시 에러 발생 확인 (3명 초과 시도)
 ```
-- [ ] 쿼리 결과로 모든 상태 업데이트 확인
-- [ ] capacity 초과 시도 시 에러 발생 확인
+- [x] 쿼리 결과로 모든 상태 업데이트 확인
+- [x] capacity 초과 시도 시 에러 발생 확인
 
 ---
 

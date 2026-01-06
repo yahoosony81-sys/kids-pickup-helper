@@ -5,6 +5,9 @@
  * 주요 기능:
  * 1. 초대 전송 (sendInvitation)
  * 2. Trip별 초대 목록 조회 (getTripInvitations)
+ * 3. 초대 조회 (getInvitationById)
+ * 4. 초대 수락 (acceptInvitation)
+ * 5. 초대 거절 (rejectInvitation)
  *
  * 핵심 구현 로직:
  * - Clerk 인증 확인
@@ -469,6 +472,622 @@ export async function getTripInvitations(tripId: string, status?: string) {
       success: false,
       error: "예상치 못한 오류가 발생했습니다.",
       data: [],
+    };
+  }
+}
+
+/**
+ * 초대 조회
+ * 
+ * 특정 초대를 조회합니다. 요청자만 자신의 초대를 조회할 수 있습니다.
+ * 초대 수락 후 정확한 주소/좌표를 포함한 픽업 요청 정보를 반환합니다.
+ * 
+ * @param invitationId - 초대 ID
+ * @returns 초대 정보 및 픽업 요청 정보
+ */
+export async function getInvitationById(invitationId: string) {
+  try {
+    console.group("📋 [초대 조회] 시작");
+    console.log("1️⃣ Invitation ID:", invitationId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: null,
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회 (요청자)
+    const supabase = createClerkSupabaseClient();
+    const { data: requesterProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !requesterProfile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+        data: null,
+      };
+    }
+    console.log("✅ 요청자 Profile 조회 완료:", { profileId: requesterProfile.id });
+
+    // 3. 초대 조회 (픽업 요청 정보 JOIN)
+    const { data: invitation, error: invitationError } = await supabase
+      .from("invitations")
+      .select(
+        `
+        id,
+        trip_id,
+        pickup_request_id,
+        provider_profile_id,
+        requester_profile_id,
+        status,
+        expires_at,
+        responded_at,
+        created_at,
+        pickup_request:pickup_requests!inner(
+          id,
+          pickup_time,
+          origin_text,
+          origin_lat,
+          origin_lng,
+          destination_text,
+          destination_lat,
+          destination_lng,
+          status
+        ),
+        trip:trips!inner(
+          id,
+          status,
+          is_locked,
+          capacity,
+          created_at
+        )
+      `
+      )
+      .eq("id", invitationId)
+      .single();
+
+    if (invitationError || !invitation) {
+      console.error("❌ 초대 조회 실패:", invitationError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대를 찾을 수 없습니다.",
+        data: null,
+      };
+    }
+    console.log("✅ 초대 조회 완료:", {
+      invitationId: invitation.id,
+      status: invitation.status,
+      requesterId: invitation.requester_profile_id,
+    });
+
+    // 4. 초대 소유자 확인 (요청자만 접근 가능)
+    if (invitation.requester_profile_id !== requesterProfile.id) {
+      console.error("❌ 초대 소유자가 아님:", {
+        invitationRequesterId: invitation.requester_profile_id,
+        currentProfileId: requesterProfile.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 초대에 대한 접근 권한이 없습니다.",
+        data: null,
+      };
+    }
+    console.log("✅ 초대 소유자 확인 완료");
+
+    // 5. 만료된 PENDING 초대 자동 EXPIRED 처리
+    if (invitation.status === "PENDING") {
+      const now = new Date();
+      const expiresAt = new Date(invitation.expires_at);
+      if (expiresAt < now) {
+        console.log("⏰ 만료된 초대 발견, EXPIRED 처리");
+        const { error: updateError } = await supabase
+          .from("invitations")
+          .update({
+            status: "EXPIRED",
+            responded_at: now.toISOString(),
+          })
+          .eq("id", invitationId);
+
+        if (updateError) {
+          console.error("❌ 만료된 초대 업데이트 실패:", updateError);
+        } else {
+          console.log("✅ 만료된 초대 EXPIRED 처리 완료");
+          invitation.status = "EXPIRED";
+          invitation.responded_at = now.toISOString();
+        }
+      }
+    }
+
+    console.log("📋 초대 정보:", {
+      status: invitation.status,
+      expiresAt: invitation.expires_at,
+      respondedAt: invitation.responded_at,
+    });
+    console.groupEnd();
+
+    return {
+      success: true,
+      data: invitation,
+    };
+  } catch (error) {
+    console.error("❌ getInvitationById 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
+      data: null,
+    };
+  }
+}
+
+/**
+ * 초대 수락
+ * 
+ * 요청자가 초대를 수락하고 Trip에 참여가 확정됩니다.
+ * PRD Section 4 규칙에 따라 서버에서 모든 제약을 검증합니다.
+ * 
+ * 트랜잭션 처리:
+ * 1. invitations.status = 'ACCEPTED', responded_at 업데이트
+ * 2. trip_participants에 INSERT
+ * 3. pickup_requests.status = 'MATCHED' 업데이트
+ * 
+ * @param invitationId - 초대 ID
+ * @returns 성공/실패 결과
+ */
+export async function acceptInvitation(invitationId: string) {
+  try {
+    console.group("✅ [초대 수락] 시작");
+    console.log("1️⃣ Invitation ID:", invitationId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회 (요청자)
+    const supabase = createClerkSupabaseClient();
+    const { data: requesterProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !requesterProfile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해주세요.",
+      };
+    }
+    console.log("✅ 요청자 Profile 조회 완료:", { profileId: requesterProfile.id });
+
+    // 3. 초대 조회 및 소유자 확인
+    const { data: invitation, error: invitationError } = await supabase
+      .from("invitations")
+      .select("*")
+      .eq("id", invitationId)
+      .single();
+
+    if (invitationError || !invitation) {
+      console.error("❌ 초대 조회 실패:", invitationError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대를 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ 초대 조회 완료:", {
+      invitationId: invitation.id,
+      status: invitation.status,
+      requesterId: invitation.requester_profile_id,
+    });
+
+    // 4. 초대 소유자 확인
+    if (invitation.requester_profile_id !== requesterProfile.id) {
+      console.error("❌ 초대 소유자가 아님:", {
+        invitationRequesterId: invitation.requester_profile_id,
+        currentProfileId: requesterProfile.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 초대에 대한 접근 권한이 없습니다.",
+      };
+    }
+    console.log("✅ 초대 소유자 확인 완료");
+
+    // 5. 초대 status = 'PENDING' 확인
+    if (invitation.status !== "PENDING") {
+      console.error("❌ 초대 상태가 PENDING이 아님:", { status: invitation.status });
+      console.groupEnd();
+      return {
+        success: false,
+        error:
+          invitation.status === "ACCEPTED"
+            ? "이미 수락한 초대입니다."
+            : invitation.status === "REJECTED"
+              ? "이미 거절한 초대입니다."
+              : invitation.status === "EXPIRED"
+                ? "만료된 초대입니다."
+                : "처리할 수 없는 초대 상태입니다.",
+      };
+    }
+    console.log("✅ 초대 상태 확인 완료 (PENDING)");
+
+    // 6. expires_at 만료 여부 확인
+    const now = new Date();
+    const expiresAt = new Date(invitation.expires_at);
+    if (expiresAt < now) {
+      console.error("❌ 초대 만료됨:", {
+        expiresAt: invitation.expires_at,
+        now: now.toISOString(),
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 초대는 만료되었습니다.",
+      };
+    }
+    console.log("✅ 초대 만료 여부 확인 완료 (유효함)");
+
+    // 7. Trip 조회 및 is_locked = false 확인
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("id", invitation.trip_id)
+      .single();
+
+    if (tripError || !trip) {
+      console.error("❌ Trip 조회 실패:", tripError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "Trip을 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ Trip 조회 완료:", { tripId: trip.id, isLocked: trip.is_locked });
+
+    if (trip.is_locked) {
+      console.error("❌ Trip이 LOCK됨");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 Trip은 이미 출발했습니다. 초대를 수락할 수 없습니다.",
+      };
+    }
+    console.log("✅ Trip LOCK 상태 확인 완료 (is_locked = false)");
+
+    // 8. Trip capacity 초과 여부 확인
+    const { data: participants, error: participantsError } = await supabase
+      .from("trip_participants")
+      .select("id")
+      .eq("trip_id", invitation.trip_id);
+
+    if (participantsError) {
+      console.error("❌ 참여자 조회 실패:", participantsError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "참여자 정보를 확인하는데 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+
+    const participantCount = participants?.length || 0;
+    console.log("📊 현재 참여자 수:", { count: participantCount, capacity: trip.capacity });
+
+    if (participantCount >= trip.capacity) {
+      console.error("❌ Trip capacity 초과:", {
+        participantCount,
+        capacity: trip.capacity,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: `이 Trip은 이미 최대 인원(${trip.capacity}명)에 도달했습니다.`,
+      };
+    }
+    console.log("✅ Trip capacity 확인 완료");
+
+    // 9. 요청자 PENDING 초대 1개 조건 확인 (DB unique index 활용)
+    // 이미 invitation이 PENDING이므로, 다른 PENDING 초대가 있는지 확인
+    const { data: otherPendingInvitation, error: pendingCheckError } = await supabase
+      .from("invitations")
+      .select("id")
+      .eq("requester_profile_id", requesterProfile.id)
+      .eq("status", "PENDING")
+      .neq("id", invitationId)
+      .maybeSingle();
+
+    if (pendingCheckError) {
+      console.error("❌ PENDING 초대 조회 실패:", pendingCheckError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대 상태를 확인하는데 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+
+    if (otherPendingInvitation) {
+      console.error("❌ 요청자가 이미 다른 PENDING 초대를 보유:", {
+        otherInvitationId: otherPendingInvitation.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이미 다른 초대를 대기 중입니다. 먼저 해당 초대를 처리해주세요.",
+      };
+    }
+    console.log("✅ 요청자 PENDING 초대 1개 조건 확인 완료");
+
+    // 10. 트랜잭션 처리 (순차 실행)
+    // 10-1. invitations.status = 'ACCEPTED', responded_at 업데이트
+    const { error: updateInvitationError } = await supabase
+      .from("invitations")
+      .update({
+        status: "ACCEPTED",
+        responded_at: now.toISOString(),
+      })
+      .eq("id", invitationId);
+
+    if (updateInvitationError) {
+      console.error("❌ 초대 업데이트 실패:", updateInvitationError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대 수락 처리에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+    console.log("✅ 초대 상태 업데이트 완료 (ACCEPTED)");
+
+    // 10-2. trip_participants에 INSERT
+    // sequence_order는 현재 참여자 수 + 1로 설정
+    const { error: insertParticipantError } = await supabase
+      .from("trip_participants")
+      .insert({
+        trip_id: invitation.trip_id,
+        pickup_request_id: invitation.pickup_request_id,
+        requester_profile_id: requesterProfile.id,
+        sequence_order: participantCount + 1,
+      });
+
+    if (insertParticipantError) {
+      console.error("❌ 참여자 추가 실패:", insertParticipantError);
+      // 롤백: 초대 상태를 다시 PENDING으로 되돌림
+      await supabase
+        .from("invitations")
+        .update({
+          status: "PENDING",
+          responded_at: null,
+        })
+        .eq("id", invitationId);
+      console.error("🔄 롤백: 초대 상태를 PENDING으로 복구");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "참여자 추가에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+    console.log("✅ 참여자 추가 완료");
+
+    // 10-3. pickup_requests.status = 'MATCHED' 업데이트
+    const { error: updateRequestError } = await supabase
+      .from("pickup_requests")
+      .update({
+        status: "MATCHED",
+      })
+      .eq("id", invitation.pickup_request_id);
+
+    if (updateRequestError) {
+      console.error("❌ 픽업 요청 업데이트 실패:", updateRequestError);
+      // 롤백: 초대 상태와 참여자 삭제
+      await supabase
+        .from("invitations")
+        .update({
+          status: "PENDING",
+          responded_at: null,
+        })
+        .eq("id", invitationId);
+      await supabase
+        .from("trip_participants")
+        .delete()
+        .eq("trip_id", invitation.trip_id)
+        .eq("pickup_request_id", invitation.pickup_request_id);
+      console.error("🔄 롤백: 초대 상태와 참여자 정보 복구");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "픽업 요청 상태 업데이트에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+    console.log("✅ 픽업 요청 상태 업데이트 완료 (MATCHED)");
+
+    console.log("✅ 초대 수락 완료:", {
+      invitationId: invitation.id,
+      tripId: invitation.trip_id,
+      pickupRequestId: invitation.pickup_request_id,
+    });
+    console.groupEnd();
+
+    // 11. 캐시 무효화
+    revalidatePath(`/invitations/${invitationId}`);
+    revalidatePath("/pickup-requests");
+    revalidatePath(`/trips/${invitation.trip_id}`);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("❌ acceptInvitation 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다. 다시 시도해주세요.",
+    };
+  }
+}
+
+/**
+ * 초대 거절
+ * 
+ * 요청자가 초대를 거절합니다.
+ * 
+ * @param invitationId - 초대 ID
+ * @returns 성공/실패 결과
+ */
+export async function rejectInvitation(invitationId: string) {
+  try {
+    console.group("❌ [초대 거절] 시작");
+    console.log("1️⃣ Invitation ID:", invitationId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회 (요청자)
+    const supabase = createClerkSupabaseClient();
+    const { data: requesterProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !requesterProfile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해주세요.",
+      };
+    }
+    console.log("✅ 요청자 Profile 조회 완료:", { profileId: requesterProfile.id });
+
+    // 3. 초대 조회 및 소유자 확인
+    const { data: invitation, error: invitationError } = await supabase
+      .from("invitations")
+      .select("*")
+      .eq("id", invitationId)
+      .single();
+
+    if (invitationError || !invitation) {
+      console.error("❌ 초대 조회 실패:", invitationError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대를 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ 초대 조회 완료:", {
+      invitationId: invitation.id,
+      status: invitation.status,
+      requesterId: invitation.requester_profile_id,
+    });
+
+    // 4. 초대 소유자 확인
+    if (invitation.requester_profile_id !== requesterProfile.id) {
+      console.error("❌ 초대 소유자가 아님:", {
+        invitationRequesterId: invitation.requester_profile_id,
+        currentProfileId: requesterProfile.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 초대에 대한 접근 권한이 없습니다.",
+      };
+    }
+    console.log("✅ 초대 소유자 확인 완료");
+
+    // 5. 초대 status = 'PENDING' 확인
+    if (invitation.status !== "PENDING") {
+      console.error("❌ 초대 상태가 PENDING이 아님:", { status: invitation.status });
+      console.groupEnd();
+      return {
+        success: false,
+        error:
+          invitation.status === "ACCEPTED"
+            ? "이미 수락한 초대입니다."
+            : invitation.status === "REJECTED"
+              ? "이미 거절한 초대입니다."
+              : invitation.status === "EXPIRED"
+                ? "만료된 초대입니다."
+                : "처리할 수 없는 초대 상태입니다.",
+      };
+    }
+    console.log("✅ 초대 상태 확인 완료 (PENDING)");
+
+    // 6. expires_at 만료 여부 확인 (만료된 초대도 거절 가능)
+    const now = new Date();
+    const expiresAt = new Date(invitation.expires_at);
+    if (expiresAt < now) {
+      console.log("⏰ 초대 만료됨 (만료된 초대도 거절 가능)");
+    } else {
+      console.log("✅ 초대 만료 여부 확인 완료 (유효함)");
+    }
+
+    // 7. invitations.status = 'REJECTED', responded_at 업데이트
+    const { error: updateError } = await supabase
+      .from("invitations")
+      .update({
+        status: "REJECTED",
+        responded_at: now.toISOString(),
+      })
+      .eq("id", invitationId);
+
+    if (updateError) {
+      console.error("❌ 초대 업데이트 실패:", updateError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "초대 거절 처리에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+    console.log("✅ 초대 상태 업데이트 완료 (REJECTED)");
+
+    console.log("✅ 초대 거절 완료:", {
+      invitationId: invitation.id,
+    });
+    console.groupEnd();
+
+    // 8. 캐시 무효화
+    revalidatePath(`/invitations/${invitationId}`);
+    revalidatePath("/pickup-requests");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("❌ rejectInvitation 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다. 다시 시도해주세요.",
     };
   }
 }

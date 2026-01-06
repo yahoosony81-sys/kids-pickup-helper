@@ -6,6 +6,7 @@
  * 1. Trip 생성 (createTrip)
  * 2. 내 Trip 목록 조회 (getMyTrips)
  * 3. Trip 조회 및 소유자 확인 (getTripById)
+ * 4. Trip 참여자 목록 조회 (getTripParticipants)
  *
  * 핵심 구현 로직:
  * - Clerk 인증 확인
@@ -276,6 +277,141 @@ export async function getTripById(tripId: string) {
       success: false,
       error: "예상치 못한 오류가 발생했습니다.",
       data: null,
+    };
+  }
+}
+
+/**
+ * Trip 참여자 목록 조회
+ * 
+ * 특정 Trip의 참여자 목록을 조회합니다.
+ * 제공자만 자신의 Trip 참여자 목록을 조회할 수 있습니다.
+ * 
+ * @param tripId - Trip ID
+ * @returns 참여자 목록 및 픽업 요청 정보
+ */
+export async function getTripParticipants(tripId: string) {
+  try {
+    console.group("👥 [Trip 참여자 목록 조회] 시작");
+    console.log("1️⃣ Trip ID:", tripId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: [],
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ Profile 조회 완료:", { profileId: profile.id });
+
+    // 3. Trip 조회 및 소유자 확인
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("id", tripId)
+      .single();
+
+    if (tripError || !trip) {
+      console.error("❌ Trip 조회 실패:", tripError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "Trip을 찾을 수 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ Trip 조회 완료:", { tripId: trip.id, providerId: trip.provider_profile_id });
+
+    // 4. Trip 소유자 확인 (제공자만 조회 가능)
+    if (trip.provider_profile_id !== profile.id) {
+      console.error("❌ Trip 소유자가 아님:", {
+        tripProviderId: trip.provider_profile_id,
+        currentProfileId: profile.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 Trip에 대한 접근 권한이 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ Trip 소유자 확인 완료");
+
+    // 5. 참여자 목록 조회 (픽업 요청 정보 JOIN)
+    const { data: participants, error: participantsError } = await supabase
+      .from("trip_participants")
+      .select(
+        `
+        id,
+        trip_id,
+        pickup_request_id,
+        requester_profile_id,
+        sequence_order,
+        created_at,
+        pickup_request:pickup_requests!inner(
+          id,
+          pickup_time,
+          origin_text,
+          origin_lat,
+          origin_lng,
+          destination_text,
+          destination_lat,
+          destination_lng,
+          status
+        )
+      `
+      )
+      .eq("trip_id", tripId)
+      .order("sequence_order", { ascending: true });
+
+    if (participantsError) {
+      console.error("❌ 참여자 목록 조회 실패:", participantsError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "참여자 목록을 불러오는데 실패했습니다.",
+        data: [],
+      };
+    }
+
+    console.log("✅ 참여자 목록 조회 완료:", {
+      count: participants?.length || 0,
+    });
+    console.groupEnd();
+
+    return {
+      success: true,
+      data: participants || [],
+    };
+  } catch (error) {
+    console.error("❌ getTripParticipants 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
+      data: [],
     };
   }
 }
