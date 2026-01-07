@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { InviteButton } from "@/components/invitations/invite-button";
 import Link from "next/link";
 import { ArrowLeft, Lock, Users, MapPin, Clock, Building2, Mail } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -76,11 +77,11 @@ export default async function InvitePage({ params }: InvitePageProps) {
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         <Card>
           <CardContent className="pt-6">
-            <p className="text-destructive">{tripResult.error || "Trip을 찾을 수 없습니다."}</p>
+            <p className="text-destructive">{tripResult.error || "픽업제공을 찾을 수 없습니다."}</p>
             <Button asChild className="mt-4">
               <Link href="/trips">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Trip 목록으로 돌아가기
+                픽업제공 목록으로 돌아가기
               </Link>
             </Button>
           </CardContent>
@@ -99,15 +100,15 @@ export default async function InvitePage({ params }: InvitePageProps) {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-600 mb-4">
               <Lock className="h-5 w-5" />
-              <p className="font-medium">이 Trip은 이미 출발했습니다.</p>
+              <p className="font-medium">이 픽업제공은 이미 출발했습니다.</p>
             </div>
             <p className="text-muted-foreground mb-4">
-              LOCK된 Trip에는 새로운 초대를 보낼 수 없습니다.
+              LOCK된 픽업제공에는 새로운 초대를 보낼 수 없습니다.
             </p>
             <Button asChild>
               <Link href="/trips">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Trip 목록으로 돌아가기
+                픽업제공 목록으로 돌아가기
               </Link>
             </Button>
           </CardContent>
@@ -128,7 +129,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
             <Button asChild className="mt-4">
               <Link href="/trips">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Trip 목록으로 돌아가기
+                픽업제공 목록으로 돌아가기
               </Link>
             </Button>
           </CardContent>
@@ -166,16 +167,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
     },
   };
 
-  // 날짜 포맷팅 함수
-  function formatDateTime(dateString: string): string {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
-  }
+  // formatDateTime은 lib/utils에서 import
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -184,13 +176,13 @@ export default async function InvitePage({ params }: InvitePageProps) {
         <Button asChild variant="ghost" className="mb-4">
           <Link href="/trips">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Trip 목록으로
+            픽업제공 목록으로
           </Link>
         </Button>
         <div>
           <h1 className="text-2xl font-bold">요청자 초대</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Trip #{trip.id.slice(0, 8)}에 초대할 요청자를 선택하세요.
+            픽업제공 #{trip.id.slice(0, 8)}에 초대할 요청자를 선택하세요.
           </p>
         </div>
       </div>
@@ -289,7 +281,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
             보낸 초대 목록
           </h2>
           <p className="text-muted-foreground text-sm mt-1">
-            이 Trip에 보낸 초대 목록입니다.
+            이 픽업제공에 보낸 초대 목록입니다.
           </p>
         </div>
 

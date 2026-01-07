@@ -1,18 +1,18 @@
 /**
- * @file app/(routes)/trips/page.tsx
- * @description Trip 목록 페이지
+ * @file app/(routes)/trips/completed/page.tsx
+ * @description 완료된 Trip 목록 페이지
  *
  * 주요 기능:
- * 1. 현재 제공자의 Trip 목록 조회
- * 2. 최신순 정렬
+ * 1. 제공자가 완료한 Trip 목록 조회 (ARRIVED, COMPLETED 상태)
+ * 2. 최신순 정렬 (arrived_at DESC 우선)
  * 3. 상태별 표시 (배지/색상)
  * 4. 빈 목록 처리
  *
  * 핵심 구현 로직:
  * - Server Component로 구현
- * - getMyTrips Server Action 호출
+ * - getMyCompletedTrips Server Action 호출
  * - 카드 형태로 각 Trip 표시
- * - "새 Trip 생성" 버튼 제공
+ * - "새 픽업 제공" 버튼 제공
  *
  * @dependencies
  * - @/actions/trips: Server Action
@@ -20,7 +20,7 @@
  * - @/components/ui/button: 버튼 컴포넌트
  */
 
-import { getMyTrips } from "@/actions/trips";
+import { getMyCompletedTrips } from "@/actions/trips";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -41,8 +41,8 @@ const statusConfig: Record<
 
 export const dynamic = "force-dynamic";
 
-export default async function TripsPage() {
-  const result = await getMyTrips();
+export default async function CompletedTripsPage() {
+  const result = await getMyCompletedTrips();
 
   if (!result.success) {
     return (
@@ -56,40 +56,30 @@ export default async function TripsPage() {
     );
   }
 
-  // 진행중 Trip만 필터링 (ARRIVED, COMPLETED, CANCELLED 제외)
-  const trips = (result.data || []).filter(
-    (trip: any) => !["ARRIVED", "COMPLETED", "CANCELLED"].includes(trip.status)
-  );
+  const trips = result.data || [];
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">픽업제공</h1>
+          <h1 className="text-2xl font-bold">픽업 제공 완료</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            생성한 픽업 세션 목록을 확인할 수 있습니다.
+            완료된 픽업 세션 목록을 확인할 수 있습니다.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/trips/new">
-              <Plus className="mr-2 h-4 w-4" />
-              새 픽업 제공
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/trips/completed">
-              픽업 제공 완료
-            </Link>
-          </Button>
-        </div>
+        <Button asChild>
+          <Link href="/trips/new">
+            <Plus className="mr-2 h-4 w-4" />
+            새 픽업 제공
+          </Link>
+        </Button>
       </div>
 
       {trips.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center py-12">
             <p className="text-muted-foreground mb-4">
-              생성한 픽업제공이 없습니다.
+              완료된 픽업 제공이 없습니다.
             </p>
             <Button asChild>
               <Link href="/trips/new">
@@ -116,7 +106,9 @@ export default async function TripsPage() {
                         픽업제공 #{trip.id.slice(0, 8)}
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        {formatDateTimeShort(trip.created_at, "생성:")}
+                        {trip.arrived_at
+                          ? formatDateTimeShort(trip.arrived_at, "완료:")
+                          : formatDateTimeShort(trip.created_at, "생성:")}
                       </CardDescription>
                     </div>
                     <span
@@ -160,18 +152,7 @@ export default async function TripsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 pt-4 border-t space-y-2">
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="w-full"
-                      disabled={trip.is_locked}
-                    >
-                      <Link href={`/trips/${trip.id}/invite`}>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        {trip.is_locked ? "초대 불가 (LOCK됨)" : "초대하기"}
-                      </Link>
-                    </Button>
+                  <div className="mt-4 pt-4 border-t">
                     <Button
                       asChild
                       variant="default"

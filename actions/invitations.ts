@@ -1173,6 +1173,7 @@ export async function acceptInvitation(invitationId: string) {
     // 11. 캐시 무효화
     revalidatePath(`/invitations/${invitationId}`);
     revalidatePath("/pickup-requests");
+    revalidatePath("/my");
     revalidatePath(`/trips/${invitation.trip_id}`);
 
     return {

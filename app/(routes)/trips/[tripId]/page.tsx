@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus, Star } from "lucide-react";
 import { notFound } from "next/navigation";
+import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -65,17 +66,6 @@ const statusConfig: Record<
     className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   },
 };
-
-// 날짜 포맷팅 유틸리티 함수
-function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
-}
 
 export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const { tripId } = await params;
@@ -112,7 +102,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <Button asChild className="mt-4">
               <Link href="/trips">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Trip 목록으로 돌아가기
+                픽업제공 목록으로 돌아가기
               </Link>
             </Button>
           </CardContent>
@@ -146,7 +136,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         <Button asChild variant="outline">
           <Link href="/trips">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Trip 목록으로
+            픽업제공 목록으로
           </Link>
         </Button>
       </div>
@@ -157,9 +147,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="text-2xl">Trip 상세</CardTitle>
+                <CardTitle className="text-2xl">픽업제공 상세</CardTitle>
                 <CardDescription className="mt-1">
-                  Trip #{trip.id.slice(0, 8)}
+                  픽업제공 #{trip.id.slice(0, 8)}
                 </CardDescription>
               </div>
               <span
@@ -228,7 +218,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           <CardHeader>
             <CardTitle>참여자 목록</CardTitle>
             <CardDescription>
-              이 Trip에 참여하는 요청자 목록입니다. ({participantCount}명)
+              이 픽업제공에 참여하는 요청자 목록입니다. ({participantCount}명)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -356,7 +346,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <CardHeader>
               <CardTitle>출발 처리</CardTitle>
               <CardDescription>
-                출발 버튼을 클릭하면 Trip이 LOCK 상태가 되고, 이후 추가 초대나 초대 수락이 불가능해집니다.
+                출발 버튼을 클릭하면 픽업제공이 LOCK 상태가 되고, 이후 추가 초대나 초대 수락이 불가능해집니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -378,7 +368,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 출발 완료
               </CardTitle>
               <CardDescription>
-                이 Trip은 이미 출발했습니다. 추가 초대나 초대 수락이 불가능합니다.
+                이 픽업제공은 이미 출발했습니다. 추가 초대나 초대 수락이 불가능합니다.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -429,15 +419,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               {/* Phase 8 원칙 설명 */}
               <div className="pt-2 border-t border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  리뷰 작성 여부와 관계없이 다음 Trip을 생성할 수 있습니다.
+                  리뷰 작성 여부와 관계없이 다음 픽업제공을 생성할 수 있습니다.
                 </p>
               </div>
 
-              {/* 다음 Trip 생성하기 버튼 */}
+              {/* 다음 픽업제공 생성하기 버튼 */}
               <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white">
                 <Link href="/trips/new">
                   <Plus className="mr-2 h-4 w-4" />
-                  다음 Trip 생성하기
+                  다음 픽업제공 생성하기
                 </Link>
               </Button>
             </CardContent>
@@ -453,7 +443,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 리뷰 목록
               </CardTitle>
               <CardDescription>
-                이 Trip에 대한 요청자들의 리뷰를 확인할 수 있습니다.
+                이 픽업제공에 대한 요청자들의 리뷰를 확인할 수 있습니다.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

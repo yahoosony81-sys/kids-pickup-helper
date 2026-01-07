@@ -4,49 +4,32 @@
  *
  * 주요 기능:
  * 1. 픽업 요청 정보 표시
- * 2. 받은 초대 목록 조회 및 표시
- * 3. 제공자 프로필 정보 표시 (이름, 사진, 한줄소개)
- * 4. 초대 수락 버튼 제공
+ * 2. 요청 취소 기능
  *
  * 핵심 구현 로직:
  * - Server Component로 구현
- * - getPickupRequestById, getInvitationsForRequest Server Action 호출
+ * - getPickupRequestById Server Action 호출
  * - 요청자 본인만 접근 가능
- * - 초대 목록을 카드 형태로 표시
- * - PENDING 상태 초대에만 수락 버튼 표시
+ * - 요청 정보만 표시 (제공자 선택은 리스트 페이지에서 수행)
  *
  * @dependencies
  * - @/actions/pickup-requests: getPickupRequestById Server Action
- * - @/actions/invitations: getInvitationsForRequest Server Action
- * - @/components/invitations/invitation-card: 초대 카드 컴포넌트
  * - @/components/ui/card: 카드 컴포넌트
  * - @/components/ui/button: 버튼 컴포넌트
  */
 
 import { getPickupRequestById } from "@/actions/pickup-requests";
-import { getInvitationsForRequest } from "@/actions/invitations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Clock, AlertCircle, User } from "lucide-react";
-import { InvitationCard } from "@/components/invitations/invitation-card";
+import { ArrowLeft, MapPin, Clock, AlertCircle } from "lucide-react";
 import { CancelRequestButton } from "@/components/pickup-requests/cancel-request-button";
+import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 interface RequestDetailPageProps {
   params: Promise<{ requestId: string }>;
-}
-
-// 날짜 포맷팅 유틸리티 함수
-function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
 }
 
 // 상태별 배지 스타일
@@ -80,9 +63,9 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
             </div>
             <div className="mt-4">
               <Button asChild variant="outline">
-                <Link href="/pickup-requests">
+                <Link href="/my">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  픽업 요청 목록으로
+                  마이페이지로
                 </Link>
               </Button>
             </div>
@@ -98,34 +81,14 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
     className: "bg-gray-100 text-gray-800",
   };
 
-  // 2. 초대 목록 조회
-  const invitationsResult = await getInvitationsForRequest(requestId);
-
-  if (!invitationsResult.success) {
-    console.error("초대 목록 조회 실패:", invitationsResult.error);
-  }
-
-  const invitations = invitationsResult.data || [];
-
-  // 디버깅 로그
-  console.log("📋 [요청 상세 페이지] 초대 목록:", {
-    requestId,
-    invitationCount: invitations.length,
-    invitations: invitations.map((inv: any) => ({
-      id: inv.id,
-      status: inv.status,
-      providerName: inv.provider?.name,
-    })),
-  });
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       {/* 헤더 */}
       <div className="mb-6">
         <Button asChild variant="outline">
-          <Link href="/pickup-requests">
+          <Link href="/my">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            픽업 요청 목록으로
+            마이페이지로
           </Link>
         </Button>
       </div>
@@ -179,39 +142,6 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                 pickupTime={pickupRequest.pickup_time}
               />
             </div>
-          </CardContent>
-        </Card>
-
-        {/* 받은 초대 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">받은 초대</CardTitle>
-            <CardDescription>
-              제공자가 보낸 초대 목록입니다. 제공자 프로필을 확인하고 초대를 수락할 수 있습니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {invitations.length === 0 ? (
-              <div className="text-center py-12">
-                <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  아직 받은 초대가 없습니다.
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  제공자가 초대를 보내면 여기에 표시됩니다.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {invitations.map((invitation: any) => (
-                  <InvitationCard
-                    key={invitation.id}
-                    invitation={invitation}
-                    requestId={requestId}
-                  />
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

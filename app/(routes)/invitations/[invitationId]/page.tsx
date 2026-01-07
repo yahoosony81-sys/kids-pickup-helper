@@ -28,22 +28,12 @@ import { Button } from "@/components/ui/button";
 import { AcceptRejectButtons } from "@/components/invitations/accept-reject-buttons";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Clock, Calendar, AlertCircle } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 interface InvitationDetailPageProps {
   params: Promise<{ invitationId: string }>;
-}
-
-// 날짜 포맷팅 유틸리티 함수
-function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
 }
 
 // 초대 상태별 배지 설정

@@ -60,7 +60,7 @@ export default function NewTripPage() {
     <div className="container mx-auto py-8 px-4 max-w-2xl">
       <Card>
         <CardHeader>
-          <CardTitle>새 Trip 생성</CardTitle>
+          <CardTitle>새 픽업 제공</CardTitle>
           <CardDescription>
             제공자 전용: 새로운 픽업 세션을 생성합니다. 초대는 별도 단계에서 진행됩니다.
           </CardDescription>
@@ -69,8 +69,8 @@ export default function NewTripPage() {
           <div className="space-y-6">
             <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-md">
               <p className="text-sm text-blue-900 dark:text-blue-100">
-                <strong>안내:</strong> Trip을 생성하면 요청자에게 초대를 보낼 수 있습니다.
-                각 Trip은 최대 3명까지 수용 가능합니다.
+                <strong>안내:</strong> 픽업제공을 생성하면 요청자에게 초대를 보낼 수 있습니다.
+                각 픽업제공은 최대 3명까지 수용 가능합니다.
               </p>
             </div>
 
@@ -93,7 +93,7 @@ export default function NewTripPage() {
               </Button>
               <Button onClick={onSubmit} disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Trip 생성하기
+                픽업 제공 생성하기
               </Button>
             </div>
           </div>

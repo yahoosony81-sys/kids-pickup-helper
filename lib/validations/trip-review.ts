@@ -39,3 +39,4 @@ export const tripReviewSchema = z.object({
  */
 export type TripReviewFormData = z.infer<typeof tripReviewSchema>;
 
+

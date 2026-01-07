@@ -104,6 +104,98 @@ export async function createTrip() {
 }
 
 /**
+ * 완료된 Trip 목록 조회
+ * 
+ * 제공자가 완료한 Trip 목록을 조회합니다.
+ * ARRIVED 또는 COMPLETED 상태의 Trip만 반환합니다.
+ * 
+ * @returns 완료된 Trip 목록 (arrived_at DESC 우선, 없으면 created_at DESC)
+ */
+export async function getMyCompletedTrips() {
+  try {
+    console.group("🚗 [완료된 Trip 목록 조회] 시작");
+    
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: [],
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ Profile 조회 완료:", { profileId: profile.id });
+
+    // 3. 완료된 Trip 목록 조회 (ARRIVED 또는 COMPLETED 상태)
+    const { data: trips, error: selectError } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("provider_profile_id", profile.id)
+      .in("status", ["ARRIVED", "COMPLETED"])
+      .order("arrived_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+    if (selectError) {
+      console.error("❌ 완료된 Trip 목록 조회 실패:", selectError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "완료된 Trip 목록을 불러오는데 실패했습니다.",
+        data: [],
+      };
+    }
+
+    // arrived_at이 있는 Trip을 우선 정렬 (클라이언트 사이드에서 추가 정렬)
+    const sortedTrips = (trips || []).sort((a, b) => {
+      // arrived_at이 있으면 우선 정렬
+      if (a.arrived_at && !b.arrived_at) return -1;
+      if (!a.arrived_at && b.arrived_at) return 1;
+      if (a.arrived_at && b.arrived_at) {
+        return new Date(b.arrived_at).getTime() - new Date(a.arrived_at).getTime();
+      }
+      // arrived_at이 없으면 created_at 기준
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    console.log("✅ 완료된 Trip 목록 조회 완료:", { count: sortedTrips.length });
+    console.groupEnd();
+
+    return {
+      success: true,
+      data: sortedTrips,
+    };
+  } catch (error) {
+    console.error("❌ getMyCompletedTrips 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
+      data: [],
+    };
+  }
+}
+
+/**
  * 내 Trip 목록 조회
  */
 export async function getMyTrips(status?: string) {

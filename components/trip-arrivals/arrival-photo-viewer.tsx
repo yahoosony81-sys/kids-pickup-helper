@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Image as ImageIcon, MapPin, Clock } from "lucide-react";
 import Image from "next/image";
+import { formatDateTime } from "@/lib/utils";
 
 interface ArrivalPhoto {
   id: string;
@@ -85,16 +86,6 @@ export function ArrivalPhotoViewer({
 
     fetchArrivals();
   }, [tripId]);
-
-  const formatDateTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
-  };
 
   if (isLoading) {
     return (

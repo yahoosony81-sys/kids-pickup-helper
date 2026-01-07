@@ -83,8 +83,8 @@ export default function NewPickupRequestPage() {
         return;
       }
 
-      // 성공 시 목록 페이지로 리다이렉트
-      router.push("/pickup-requests");
+      // 성공 시 마이페이지로 리다이렉트
+      router.push("/my");
     } catch (error) {
       console.error("폼 제출 에러:", error);
       setSubmitError("예상치 못한 오류가 발생했습니다. 다시 시도해주세요.");

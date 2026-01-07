@@ -58,12 +58,17 @@ export async function createPickupRequest(data: PickupRequestFormData) {
       };
     }
 
-    // 3. 픽업 요청 등록
+    // 3. 픽업 시간 저장 (한국 시간 기준, 변환 없이 그대로 저장)
+    // datetime-local input은 "YYYY-MM-DDTHH:mm" 형식으로 반환됩니다.
+    // 데이터베이스의 pickup_time 컬럼은 timestamp 타입이므로 타임존 없이 저장됩니다.
+    const pickupTime = data.pickup_time; // "2024-01-01T17:30" 형식 그대로 사용
+
+    // 4. 픽업 요청 등록
     const { data: pickupRequest, error: insertError } = await supabase
       .from("pickup_requests")
       .insert({
         requester_profile_id: profile.id,
-        pickup_time: data.pickup_time,
+        pickup_time: pickupTime,
         origin_text: data.origin_text,
         origin_lat: data.origin_lat,
         origin_lng: data.origin_lng,
@@ -85,6 +90,7 @@ export async function createPickupRequest(data: PickupRequestFormData) {
 
     // 4. 캐시 무효화
     revalidatePath("/pickup-requests");
+    revalidatePath("/my");
 
     return {
       success: true,
@@ -312,10 +318,11 @@ export async function getAvailablePickupRequests() {
       const destinationArea = extractAreaFromAddress(request.destination_text);
       const destinationType = detectDestinationType(request.destination_text);
 
-      // 픽업 시간 포맷팅 (시간대만 표시)
-      const pickupDate = new Date(request.pickup_time);
-      const hours = pickupDate.getHours();
-      const minutes = pickupDate.getMinutes();
+      // 픽업 시간 포맷팅 (한국 시간 기준, 변환 없이 그대로 사용)
+      // 데이터베이스에 저장된 시간은 이미 한국 시간이므로 변환 불필요
+      const date = new Date(request.pickup_time);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
       const timeLabel = hours < 12 
         ? `오전 ${hours === 0 ? 12 : hours}시${minutes > 0 ? ` ${minutes}분` : ""}`
         : `오후 ${hours === 12 ? 12 : hours - 12}시${minutes > 0 ? ` ${minutes}분` : ""}`;

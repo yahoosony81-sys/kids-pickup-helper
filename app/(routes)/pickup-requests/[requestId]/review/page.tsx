@@ -30,22 +30,12 @@ import Link from "next/link";
 import { ArrowLeft, AlertCircle, CheckCircle2, Star } from "lucide-react";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { ReviewForm } from "@/components/trip-reviews/review-form";
+import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 interface ReviewPageProps {
   params: Promise<{ requestId: string }>;
-}
-
-// 날짜 포맷팅 유틸리티 함수
-function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
 }
 
 export default async function ReviewPage({ params }: ReviewPageProps) {
@@ -238,4 +228,5 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
     </div>
   );
 }
+
 
