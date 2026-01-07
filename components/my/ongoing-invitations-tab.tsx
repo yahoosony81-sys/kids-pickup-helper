@@ -100,7 +100,8 @@ export function OngoingInvitationsTab({
   }, {} as Record<string, { trip: any; invitations: any[] }>);
 
   // 그룹을 출발 예정 시각 기준으로 정렬 (최신순)
-  const sortedGroups = Object.values(groupedByTrip).sort((a, b) => {
+  type GroupType = { trip: any; invitations: any[] };
+  const sortedGroups: GroupType[] = (Object.values(groupedByTrip) as GroupType[]).sort((a, b) => {
     const aTime = a.trip?.scheduled_start_at
       ? new Date(a.trip.scheduled_start_at).getTime()
       : 0;
