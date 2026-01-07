@@ -14,18 +14,18 @@
  *
  * @dependencies
  * - @/actions/pickup-requests: getMyPickupRequests Server Action
- * - @/actions/trips: getMyTrips Server Action
+ * - @/actions/invitations: getMyInvitations Server Action
  * - @/components/ui/tabs: 탭 컴포넌트
  */
 
 import { getMyPickupRequests } from "@/actions/pickup-requests";
-import { getMyTrips } from "@/actions/trips";
+import { getMyInvitations } from "@/actions/invitations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { History } from "lucide-react";
 import { OngoingRequestsTab } from "@/components/my/ongoing-requests-tab";
-import { OngoingTripsTab } from "@/components/my/ongoing-trips-tab";
+import { OngoingInvitationsTab } from "@/components/my/ongoing-invitations-tab";
 
 export const dynamic = "force-dynamic";
 
@@ -39,13 +39,10 @@ export default async function MyPage() {
       )
     : [];
 
-  // 진행중 픽업 제공 조회 (OPEN, IN_PROGRESS만)
-  const tripsResult = await getMyTrips();
-  const ongoingTrips = tripsResult.success
-    ? (tripsResult.data || []).filter(
-        (trip: any) =>
-          !["ARRIVED", "COMPLETED", "CANCELLED"].includes(trip.status)
-      )
+  // 진행중 초대 조회 (내가 보낸 초대 목록)
+  const invitationsResult = await getMyInvitations();
+  const ongoingInvitations = invitationsResult.success
+    ? invitationsResult.data || []
     : [];
 
   return (
@@ -80,14 +77,14 @@ export default async function MyPage() {
             내가 신청한 픽업 요청 ({ongoingRequests.length})
           </TabsTrigger>
           <TabsTrigger value="trips">
-            내가 제공한 픽업 ({ongoingTrips.length})
+            내가 제공한 픽업 ({ongoingInvitations.length})
           </TabsTrigger>
         </TabsList>
         <TabsContent value="requests" className="mt-6">
           <OngoingRequestsTab requests={ongoingRequests} />
         </TabsContent>
         <TabsContent value="trips" className="mt-6">
-          <OngoingTripsTab trips={ongoingTrips} />
+          <OngoingInvitationsTab invitations={ongoingInvitations} />
         </TabsContent>
       </Tabs>
     </div>

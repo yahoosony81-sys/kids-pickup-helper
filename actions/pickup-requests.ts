@@ -293,10 +293,10 @@ export async function getAvailablePickupRequests() {
     }
     console.log("✅ Profile 조회 완료:", { profileId: profile.id });
 
-    // 3. REQUESTED 상태인 픽업 요청만 조회
+    // 3. REQUESTED 상태인 픽업 요청만 조회 (requester_profile_id 포함)
     const { data: pickupRequests, error: selectError } = await supabase
       .from("pickup_requests")
-      .select("id, pickup_time, origin_text, destination_text")
+      .select("id, pickup_time, origin_text, destination_text, requester_profile_id")
       .eq("status", "REQUESTED")
       .order("pickup_time", { ascending: true });
 
@@ -312,7 +312,33 @@ export async function getAvailablePickupRequests() {
 
     console.log("✅ 픽업 요청 조회 완료:", { count: pickupRequests?.length || 0 });
 
-    // 4. 주소 파싱 및 제한된 정보만 반환
+    // 4. 각 요청자에 대해 PENDING 초대 존재 여부 확인 (requester_profile_id 기준, 배치 쿼리로 최적화)
+    // sendInvitation()과 동일한 기준 사용: requester_profile_id 기준으로 PENDING 초대 확인
+    const requesterIds = [
+      ...new Set((pickupRequests || []).map((req) => req.requester_profile_id)),
+    ];
+    const { data: pendingInvitations, error: pendingCheckError } = await supabase
+      .from("invitations")
+      .select("requester_profile_id")
+      .in("requester_profile_id", requesterIds)
+      .eq("status", "PENDING");
+
+    if (pendingCheckError) {
+      console.error("❌ PENDING 초대 조회 실패:", pendingCheckError);
+      // 에러가 발생해도 계속 진행 (hasPendingInvite는 false로 처리)
+    }
+
+    // PENDING 초대가 있는 requester_profile_id 집합 생성
+    const pendingRequesterIds = new Set(
+      (pendingInvitations || []).map((inv) => inv.requester_profile_id)
+    );
+
+    console.log("✅ PENDING 초대 확인 완료:", {
+      totalRequesters: requesterIds.length,
+      pendingCount: pendingRequesterIds.size,
+    });
+
+    // 5. 주소 파싱 및 제한된 정보만 반환 (hasPendingInvite 포함)
     const availableRequests = (pickupRequests || []).map((request) => {
       const originArea = extractAreaFromAddress(request.origin_text);
       const destinationArea = extractAreaFromAddress(request.destination_text);
@@ -333,10 +359,11 @@ export async function getAvailablePickupRequests() {
         origin_area: originArea,
         destination_area: destinationArea,
         destination_type: destinationType,
+        hasPendingInvite: pendingRequesterIds.has(request.requester_profile_id),
       };
     });
 
-    console.log("✅ 주소 파싱 완료:", { count: availableRequests.length });
+    console.log("✅ 주소 파싱 및 PENDING 상태 확인 완료:", { count: availableRequests.length });
     console.groupEnd();
 
     return {

@@ -33,6 +33,7 @@ const statusConfig: Record<
   { label: string; className: string }
 > = {
   OPEN: { label: "오픈", className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  LOCKED: { label: "마감", className: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
   IN_PROGRESS: { label: "진행중", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
   ARRIVED: { label: "도착", className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
   COMPLETED: { label: "완료", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
@@ -107,16 +108,44 @@ export default async function TripsPage() {
               className: "bg-gray-100 text-gray-800",
             };
 
+            // 초대하기 버튼 활성 조건 계산
+            const now = new Date();
+            const scheduledStart = trip.scheduled_start_at
+              ? new Date(trip.scheduled_start_at)
+              : null;
+            const lockTime = scheduledStart
+              ? new Date(scheduledStart.getTime() - 30 * 60 * 1000) // 30분 전
+              : null;
+
+            const canInvite =
+              trip.status === "OPEN" &&
+              !trip.is_locked &&
+              scheduledStart &&
+              now < lockTime;
+
+            const inviteButtonText = trip.status === "LOCKED" || trip.is_locked
+              ? "초대 불가 (마감됨)"
+              : scheduledStart && now >= lockTime
+                ? "초대 불가 (출발 30분 전)"
+                : "초대하기";
+
             return (
               <Card key={trip.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <CardTitle className="text-lg">
-                        픽업제공 #{trip.id.slice(0, 8)}
+                        {trip.title || `픽업제공 #${trip.id.slice(0, 8)}`}
                       </CardTitle>
-                      <CardDescription className="mt-1">
-                        {formatDateTimeShort(trip.created_at, "생성:")}
+                      <CardDescription className="mt-1 space-y-1">
+                        {trip.scheduled_start_at && (
+                          <div>
+                            출발 예정: {formatDateTime(trip.scheduled_start_at)}
+                          </div>
+                        )}
+                        <div>
+                          {formatDateTimeShort(trip.created_at, "생성:")}
+                        </div>
                       </CardDescription>
                     </div>
                     <span
@@ -137,7 +166,7 @@ export default async function TripsPage() {
                           0 / {trip.capacity}
                         </span>
                       </div>
-                      {trip.is_locked && (
+                      {(trip.status === "LOCKED" || trip.is_locked) && (
                         <div className="flex items-center gap-2">
                           <Lock className="h-4 w-4 text-yellow-600" />
                           <span className="text-yellow-600 font-medium">LOCK</span>
@@ -146,7 +175,7 @@ export default async function TripsPage() {
                     </div>
                     {trip.start_at && (
                       <div className="text-sm text-muted-foreground">
-                        출발 시간: {formatDateTime(trip.start_at)}
+                        실제 출발 시간: {formatDateTime(trip.start_at)}
                       </div>
                     )}
                     {trip.arrived_at && (
@@ -165,11 +194,11 @@ export default async function TripsPage() {
                       asChild
                       variant="outline"
                       className="w-full"
-                      disabled={trip.is_locked}
+                      disabled={!canInvite}
                     >
                       <Link href={`/trips/${trip.id}/invite`}>
                         <UserPlus className="mr-2 h-4 w-4" />
-                        {trip.is_locked ? "초대 불가 (LOCK됨)" : "초대하기"}
+                        {inviteButtonText}
                       </Link>
                     </Button>
                     <Button

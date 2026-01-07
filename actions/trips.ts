@@ -27,11 +27,18 @@ import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 /**
- * Trip 생성
+ * Trip 생성 (픽업 그룹 생성)
+ * 
+ * @param data - 그룹 생성 데이터 (title, scheduled_start_at)
  */
-export async function createTrip() {
+export async function createTrip(data: {
+  title: string;
+  scheduled_start_at: string;
+}) {
   try {
     console.group("🚗 [Trip 생성] 시작");
+    console.log("1️⃣ 그룹명:", data.title);
+    console.log("2️⃣ 출발 예정 시각:", data.scheduled_start_at);
     
     // 1. 인증 확인
     const { userId } = await auth();
@@ -63,11 +70,16 @@ export async function createTrip() {
     }
     console.log("✅ Profile 조회 완료:", { profileId: profile.id });
 
-    // 3. Trip 생성
+    // 3. scheduled_start_at을 ISO 문자열로 변환 (datetime-local은 "YYYY-MM-DDTHH:mm" 형식)
+    const scheduledStartAt = new Date(data.scheduled_start_at).toISOString();
+
+    // 4. Trip 생성
     const { data: trip, error: insertError } = await supabase
       .from("trips")
       .insert({
         provider_profile_id: profile.id,
+        title: data.title,
+        scheduled_start_at: scheduledStartAt,
         status: "OPEN",
         is_locked: false,
         capacity: 3,
@@ -77,17 +89,28 @@ export async function createTrip() {
 
     if (insertError) {
       console.error("❌ Trip 생성 실패:", insertError);
+      console.error("❌ 에러 상세:", {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code,
+      });
       console.groupEnd();
       return {
         success: false,
-        error: "Trip 생성에 실패했습니다. 다시 시도해주세요.",
+        error: "픽업 그룹 생성에 실패했습니다. 다시 시도해주세요.",
       };
     }
 
-    console.log("✅ Trip 생성 완료:", { tripId: trip.id, status: trip.status });
+    console.log("✅ Trip 생성 완료:", {
+      tripId: trip.id,
+      title: trip.title,
+      scheduledStartAt: trip.scheduled_start_at,
+      status: trip.status,
+    });
     console.groupEnd();
 
-    // 4. 캐시 무효화
+    // 5. 캐시 무효화
     revalidatePath("/trips");
 
     return {
@@ -257,6 +280,55 @@ export async function getMyTrips(status?: string) {
         error: "Trip 목록을 불러오는데 실패했습니다.",
         data: [],
       };
+    }
+
+    // 4. 출발 30분 전 자동 LOCK 처리
+    const now = new Date();
+    for (const trip of trips || []) {
+      if (!trip.scheduled_start_at || trip.status !== "OPEN") continue;
+
+      const scheduledStart = new Date(trip.scheduled_start_at);
+      const lockTime = new Date(scheduledStart.getTime() - 30 * 60 * 1000); // 30분 전
+
+      if (now >= lockTime && trip.status === "OPEN") {
+        console.log("🔒 출발 30분 전 도달, 그룹 LOCK 처리:", { tripId: trip.id });
+
+        // 그룹 LOCK
+        const { error: lockError } = await supabase
+          .from("trips")
+          .update({
+            status: "LOCKED",
+            is_locked: true,
+          })
+          .eq("id", trip.id);
+
+        if (lockError) {
+          console.error("❌ 그룹 LOCK 처리 실패:", lockError);
+          // 에러가 발생해도 계속 진행
+        } else {
+          console.log("✅ 그룹 LOCK 처리 완료:", { tripId: trip.id });
+          // trip 객체 업데이트
+          trip.status = "LOCKED";
+          trip.is_locked = true;
+        }
+
+        // 남은 PENDING 초대 EXPIRED 처리
+        const { error: expireError } = await supabase
+          .from("invitations")
+          .update({
+            status: "EXPIRED",
+            responded_at: now.toISOString(),
+          })
+          .eq("trip_id", trip.id)
+          .eq("status", "PENDING");
+
+        if (expireError) {
+          console.error("❌ PENDING 초대 EXPIRED 처리 실패:", expireError);
+          // 에러가 발생해도 계속 진행
+        } else {
+          console.log("✅ PENDING 초대 EXPIRED 처리 완료:", { tripId: trip.id });
+        }
+      }
     }
 
     console.log("✅ Trip 목록 조회 완료:", { count: trips?.length || 0 });

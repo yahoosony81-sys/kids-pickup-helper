@@ -65,8 +65,8 @@ const invitationStatusConfig: Record<
     icon: <XCircle className="h-3 w-3" />,
   },
   EXPIRED: {
-    label: "만료됨",
-    className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    label: "마감됨",
+    className: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
     icon: <AlertCircle className="h-3 w-3" />,
   },
 };

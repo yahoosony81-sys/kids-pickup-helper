@@ -24,19 +24,21 @@ interface InviteButtonProps {
   tripId: string;
   pickupRequestId: string;
   isTripLocked: boolean;
+  hasPendingInvite?: boolean;
 }
 
 export function InviteButton({
   tripId,
   pickupRequestId,
   isTripLocked,
+  hasPendingInvite = false,
 }: InviteButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleInvite = async () => {
-    if (isTripLocked) {
+    if (isTripLocked || hasPendingInvite) {
       return;
     }
 
@@ -61,6 +63,22 @@ export function InviteButton({
     }
   };
 
+  // PENDING 초대가 있는 경우: "수락 대기 중" 버튼 (disabled, 회색 스타일)
+  if (hasPendingInvite) {
+    return (
+      <div>
+        <Button
+          className="w-full"
+          disabled={true}
+          variant="secondary"
+        >
+          수락 대기 중
+        </Button>
+      </div>
+    );
+  }
+
+  // 일반 초대하기 버튼
   return (
     <div>
       <Button

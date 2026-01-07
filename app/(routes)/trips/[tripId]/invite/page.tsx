@@ -265,6 +265,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
                     tripId={trip.id}
                     pickupRequestId={request.id}
                     isTripLocked={trip.is_locked}
+                    hasPendingInvite={request.hasPendingInvite}
                   />
                 </CardContent>
               </Card>
