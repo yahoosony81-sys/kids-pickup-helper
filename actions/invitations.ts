@@ -1046,7 +1046,13 @@ export async function acceptInvitation(invitationId: string) {
     // 3. 초대 조회 및 소유자 확인
     let { data: invitation, error: invitationError } = await supabase
       .from("invitations")
-      .select("*")
+      .select(`
+        *,
+        pickup_request:pickup_requests!inner(
+          id,
+          pickup_time
+        )
+      `)
       .eq("id", invitationId)
       .single();
 
@@ -1065,7 +1071,13 @@ export async function acceptInvitation(invitationId: string) {
     // 시간 규칙 정리 후 다시 초대 조회 (상태가 변경되었을 수 있음)
     const { data: updatedInvitation, error: updatedInvitationError } = await supabase
       .from("invitations")
-      .select("*")
+      .select(`
+        *,
+        pickup_request:pickup_requests!inner(
+          id,
+          pickup_time
+        )
+      `)
       .eq("id", invitationId)
       .single();
 
