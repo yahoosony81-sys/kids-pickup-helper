@@ -25,7 +25,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { expireTripsIfPast } from "@/lib/utils/trip-expiration";
+import { expireTripsIfPast, expireTripIfPast } from "@/lib/utils/trip-expiration";
 
 /**
  * Trip 생성 (픽업 그룹 생성)
