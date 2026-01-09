@@ -217,12 +217,14 @@ export async function uploadArrivalPhoto(
     }
     console.log("✅ trip_arrivals INSERT 완료:", arrivalData.id);
 
-    // 11. 관련 pickup_requests.status = 'COMPLETED' 업데이트 (Phase 8 원칙: 도착 인증 시점에 서비스 완료)
+    // 11. 관련 pickup_requests.status = 'COMPLETED', progress_stage = 'ARRIVED' 업데이트 (Phase 8 원칙: 도착 인증 시점에 서비스 완료)
     console.log("🔄 pickup_requests 상태 업데이트 중...");
+    const now = new Date().toISOString();
     const { error: updateRequestError } = await supabase
       .from("pickup_requests")
       .update({
         status: "COMPLETED",
+        progress_stage: "ARRIVED",
       })
       .eq("id", pickupRequestId);
 
@@ -234,7 +236,7 @@ export async function uploadArrivalPhoto(
         error: "픽업 요청 상태 업데이트에 실패했습니다.",
       };
     }
-    console.log("✅ pickup_requests 상태 업데이트 완료 (COMPLETED)");
+    console.log("✅ pickup_requests 상태 업데이트 완료 (COMPLETED, ARRIVED)");
 
     // 12. 모든 참여자 도착 확인
     console.log("📊 모든 참여자 도착 확인 중...");

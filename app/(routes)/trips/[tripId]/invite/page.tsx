@@ -92,7 +92,32 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   const trip = tripResult.data;
 
-  // 2. Trip이 LOCK된 경우 초대 불가
+  // 2. Trip이 EXPIRED 상태인 경우 초대 불가
+  if (trip.status === "EXPIRED") {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-orange-600 mb-4">
+              <Lock className="h-5 w-5" />
+              <p className="font-medium">이 픽업제공은 기간이 만료되었습니다.</p>
+            </div>
+            <p className="text-muted-foreground mb-4">
+              출발 예정 시간이 지나도록 출발하지 않아 만료된 픽업제공입니다. 새로운 초대를 보낼 수 없습니다.
+            </p>
+            <Button asChild>
+              <Link href="/trips">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                픽업제공 목록으로 돌아가기
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 2-1. Trip이 LOCK된 경우 초대 불가
   if (trip.is_locked) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -139,6 +164,29 @@ export default async function InvitePage({ params }: InvitePageProps) {
   }
 
   const availableRequests = requestsResult.data || [];
+
+  // 날짜 비교 함수: 그룹 날짜와 요청 날짜가 일치하는지 확인
+  const isDateMatch = (tripDate: string | null, requestDate: string | Date): boolean => {
+    if (!tripDate) return false;
+    
+    const tripDateObj = new Date(tripDate);
+    const requestDateObj = typeof requestDate === "string" ? new Date(requestDate) : requestDate;
+    
+    // 날짜만 비교 (YYYY-MM-DD)
+    const tripDateStr = tripDateObj.toISOString().split("T")[0];
+    const requestDateStr = requestDateObj.toISOString().split("T")[0];
+    
+    return tripDateStr === requestDateStr;
+  };
+
+  // 각 요청에 대해 날짜 일치 여부 계산
+  const requestsWithDateMatch = availableRequests.map((request: any) => {
+    const match = isDateMatch(trip.scheduled_start_at, request.pickup_time_raw || request.pickup_time);
+    return {
+      ...request,
+      isDateMatch: match,
+    };
+  });
 
   // 4. 보낸 초대 목록 조회
   const invitationsResult = await getTripInvitations(tripId);
@@ -230,7 +278,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
             </p>
           </div>
 
-          {availableRequests.map((request: any) => {
+          {requestsWithDateMatch.map((request: any) => {
             const destinationTypeInfo =
               destinationTypeConfig[request.destination_type] ||
               destinationTypeConfig["기타"];
@@ -266,6 +314,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
                     pickupRequestId={request.id}
                     isTripLocked={trip.is_locked}
                     hasPendingInvite={request.hasPendingInvite}
+                    isDateMatch={request.isDateMatch}
                   />
                 </CardContent>
               </Card>

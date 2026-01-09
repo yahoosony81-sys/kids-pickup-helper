@@ -23,14 +23,19 @@
 import { getTripById, getTripParticipants } from "@/actions/trips";
 import { getTripArrivals, checkArrivalPhoto } from "@/actions/trip-arrivals";
 import { getTripReviews } from "@/actions/trip-reviews";
+import { getTripInvitations } from "@/actions/invitations";
+import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
 import { StartTripButton } from "@/components/trips/start-trip-button";
+import { PickupCompleteButton } from "@/components/trips/pickup-complete-button";
 import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
 import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
 import { ApproveCancelButton } from "@/components/pickup-requests/approve-cancel-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus, Star } from "lucide-react";
+import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus, Star, MessageSquare } from "lucide-react";
+import { PageNavActions } from "@/components/page-nav-actions";
 import { notFound } from "next/navigation";
 import { formatDateTime } from "@/lib/utils";
 
@@ -65,6 +70,10 @@ const statusConfig: Record<
     label: "취소됨",
     className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   },
+  EXPIRED: {
+    label: "기간 만료",
+    className: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  },
 };
 
 export default async function TripDetailPage({ params }: TripDetailPageProps) {
@@ -81,6 +90,39 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
   // 2. 참여자 목록 조회
   const participantsResult = await getTripParticipants(tripId);
+
+  // 2-1. ACCEPTED invitation 목록 조회 (메시지 스레드 매핑용)
+  const acceptedInvitationsResult = await getTripInvitations(tripId, "ACCEPTED");
+  const acceptedInvitations = acceptedInvitationsResult.success
+    ? acceptedInvitationsResult.data || []
+    : [];
+  
+  // participant와 invitation 매핑 (pickup_request_id 기준)
+  const invitationMap = new Map<string, string>();
+  acceptedInvitations.forEach((invitation: any) => {
+    const pickupRequest = invitation.pickup_request;
+    if (pickupRequest?.id) {
+      invitationMap.set(pickupRequest.id, invitation.id);
+    }
+  });
+
+  // 2-2. 읽지 않은 메시지 개수 조회
+  const inviteIds = Array.from(invitationMap.values());
+  console.log("🔍 [TripDetailPage] 읽지 않은 메시지 조회 시작:", {
+    inviteIds,
+    invitationMapSize: invitationMap.size,
+  });
+  
+  let unreadCounts: { [inviteId: string]: number } = {};
+  if (inviteIds.length > 0) {
+    const unreadCountsResult = await getUnreadCountsForInvites(inviteIds);
+    if (unreadCountsResult.success) {
+      unreadCounts = unreadCountsResult.data || {};
+      console.log("✅ [TripDetailPage] 읽지 않은 메시지 개수:", unreadCounts);
+    } else {
+      console.error("❌ [TripDetailPage] 읽지 않은 메시지 조회 실패:", unreadCountsResult.error);
+    }
+  }
 
   // 3. 리뷰 목록 조회 (COMPLETED 상태일 때만)
   let reviewsData = null;
@@ -132,14 +174,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="mb-6">
-        <Button asChild variant="outline">
-          <Link href="/trips">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            픽업제공 목록으로
-          </Link>
-        </Button>
-      </div>
+      <PageNavActions fallbackHref="/trips" />
 
       <div className="space-y-6">
         {/* Trip 정보 카드 */}
@@ -315,6 +350,48 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                             </div>
                           )}
 
+                          {/* 메시지 작성 버튼 (ACCEPTED invitation이 있는 경우만) */}
+                          {pickupRequest && invitationMap.has(pickupRequest.id) && (() => {
+                            const inviteId = invitationMap.get(pickupRequest.id)!;
+                            const unreadCount = unreadCounts[inviteId] || 0;
+                            console.log(`🔍 [TripDetailPage] 메시지 버튼 렌더링:`, {
+                              pickupRequestId: pickupRequest.id,
+                              inviteId,
+                              unreadCount,
+                              hasUnreadCount: unreadCount > 0,
+                              allUnreadCounts: unreadCounts,
+                            });
+                            return (
+                              <div className="mt-4 pt-4 border-t">
+                                <Button asChild variant="outline" className="w-full relative">
+                                  <Link href={`/trips/${tripId}/messages/${inviteId}`}>
+                                    <MessageSquare className="mr-2 h-4 w-4" />
+                                    메시지 작성
+                                    {unreadCount > 0 && (
+                                      <Badge 
+                                        variant="destructive" 
+                                        className="ml-2 h-5 min-w-5 px-1.5 text-xs"
+                                      >
+                                        {unreadCount > 9 ? "9+" : unreadCount}
+                                      </Badge>
+                                    )}
+                                  </Link>
+                                </Button>
+                              </div>
+                            );
+                          })()}
+
+                          {/* 픽업 완료 버튼 (LOCK된 경우만, 제공자만, progress_stage = 'STARTED'일 때만) */}
+                          {trip.is_locked && pickupRequest && (
+                            <div className="mt-4 pt-4 border-t">
+                              <PickupCompleteButton
+                                tripId={tripId}
+                                pickupRequestId={pickupRequest.id}
+                                progressStage={pickupRequest.progress_stage}
+                              />
+                            </div>
+                          )}
+
                           {/* 도착 사진 업로드 (LOCK된 경우만, 제공자만) */}
                           {trip.is_locked && (
                             <div className="mt-4 pt-4 border-t">
@@ -341,7 +418,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         </Card>
 
         {/* 출발 버튼 카드 */}
-        {!trip.is_locked && (
+        {!trip.is_locked && trip.status !== "EXPIRED" && (
           <Card>
             <CardHeader>
               <CardTitle>출발 처리</CardTitle>
@@ -354,13 +431,29 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 tripId={tripId}
                 isLocked={trip.is_locked}
                 participantCount={participantCount}
+                tripStatus={trip.status}
               />
             </CardContent>
           </Card>
         )}
 
+        {/* EXPIRED 상태 안내 메시지 */}
+        {trip.status === "EXPIRED" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-orange-600" />
+                기간 만료
+              </CardTitle>
+              <CardDescription>
+                이 픽업제공은 출발 예정 시간이 지나도록 출발하지 않아 만료되었습니다. 초대나 출발이 불가능합니다.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+
         {/* LOCK된 경우 안내 메시지 */}
-        {trip.is_locked && (
+        {trip.is_locked && trip.status !== "EXPIRED" && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

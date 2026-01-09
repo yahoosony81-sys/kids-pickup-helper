@@ -19,12 +19,16 @@
  */
 
 import { getPickupRequestById } from "@/actions/pickup-requests";
+import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, AlertCircle, MessageSquare } from "lucide-react";
 import { CancelRequestButton } from "@/components/pickup-requests/cancel-request-button";
 import { formatDateTime } from "@/lib/utils";
+import { createClerkSupabaseClient } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +85,46 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
     className: "bg-gray-100 text-gray-800",
   };
 
+  // ACCEPTED invitation 조회 (메시지 버튼 표시용)
+  let acceptedInvitation = null;
+  let tripId = null;
+  let unreadCount = 0;
+  
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const supabase = createClerkSupabaseClient();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("clerk_user_id", userId)
+        .single();
+
+      if (profile) {
+        const { data: invitation } = await supabase
+          .from("invitations")
+          .select("id, trip_id")
+          .eq("pickup_request_id", requestId)
+          .eq("requester_profile_id", profile.id)
+          .eq("status", "ACCEPTED")
+          .single();
+
+        if (invitation) {
+          acceptedInvitation = invitation;
+          tripId = invitation.trip_id;
+
+          // 읽지 않은 메시지 개수 조회
+          const unreadCountsResult = await getUnreadCountsForInvites([invitation.id]);
+          if (unreadCountsResult.success && unreadCountsResult.data) {
+            unreadCount = unreadCountsResult.data[invitation.id] || 0;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("❌ ACCEPTED invitation 조회 실패:", error);
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       {/* 헤더 */}
@@ -133,6 +177,26 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                 <p className="text-base">{pickupRequest.destination_text}</p>
               </div>
             </div>
+
+            {/* 메시지 버튼 (ACCEPTED invitation이 있는 경우만) */}
+            {acceptedInvitation && tripId && (
+              <div className="pt-4 border-t">
+                <Button asChild variant="outline" className="w-full relative">
+                  <Link href={`/trips/${tripId}/messages/${acceptedInvitation.id}`}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    메시지 작성
+                    {unreadCount > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="ml-2 h-5 min-w-5 px-1.5 text-xs"
+                      >
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </Badge>
+                    )}
+                  </Link>
+                </Button>
+              </div>
+            )}
 
             {/* 취소 요청 버튼 */}
             <div className="pt-4 border-t">

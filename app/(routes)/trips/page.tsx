@@ -38,6 +38,7 @@ const statusConfig: Record<
   ARRIVED: { label: "도착", className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
   COMPLETED: { label: "완료", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
   CANCELLED: { label: "취소됨", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  EXPIRED: { label: "기간 만료", className: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
 };
 
 export const dynamic = "force-dynamic";
@@ -78,11 +79,6 @@ export default async function TripsPage() {
               새 픽업 제공
             </Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/trips/completed">
-              픽업 제공 완료
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -121,13 +117,16 @@ export default async function TripsPage() {
               trip.status === "OPEN" &&
               !trip.is_locked &&
               scheduledStart &&
-              now < lockTime;
+              now < lockTime &&
+              trip.status !== "EXPIRED";
 
-            const inviteButtonText = trip.status === "LOCKED" || trip.is_locked
-              ? "초대 불가 (마감됨)"
-              : scheduledStart && now >= lockTime
-                ? "초대 불가 (출발 30분 전)"
-                : "초대하기";
+            const inviteButtonText = trip.status === "EXPIRED"
+              ? "초대 불가 (기간 만료)"
+              : trip.status === "LOCKED" || trip.is_locked
+                ? "초대 불가 (마감됨)"
+                : scheduledStart && now >= lockTime
+                  ? "초대 불가 (출발 30분 전)"
+                  : "초대하기";
 
             return (
               <Card key={trip.id}>
@@ -194,7 +193,7 @@ export default async function TripsPage() {
                       asChild
                       variant="outline"
                       className="w-full"
-                      disabled={!canInvite}
+                      disabled={!canInvite || trip.status === "EXPIRED"}
                     >
                       <Link href={`/trips/${trip.id}/invite`}>
                         <UserPlus className="mr-2 h-4 w-4" />

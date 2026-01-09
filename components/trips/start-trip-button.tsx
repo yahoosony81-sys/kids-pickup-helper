@@ -26,19 +26,21 @@ interface StartTripButtonProps {
   tripId: string;
   isLocked: boolean;
   participantCount: number;
+  tripStatus?: string;
 }
 
 export function StartTripButton({
   tripId,
   isLocked,
   participantCount,
+  tripStatus,
 }: StartTripButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleStartTrip = async () => {
-    if (isLocked || participantCount === 0) {
+    if (isLocked || participantCount === 0 || tripStatus === "EXPIRED") {
       return;
     }
 
@@ -63,7 +65,7 @@ export function StartTripButton({
     }
   };
 
-  const canStart = !isLocked && participantCount > 0;
+  const canStart = !isLocked && participantCount > 0 && tripStatus !== "EXPIRED";
 
   return (
     <div className="space-y-2">
@@ -77,6 +79,11 @@ export function StartTripButton({
           <>
             <span className="animate-spin mr-2">⏳</span>
             출발 처리 중...
+          </>
+        ) : tripStatus === "EXPIRED" ? (
+          <>
+            <Lock className="mr-2 h-4 w-4" />
+            기간 만료
           </>
         ) : isLocked ? (
           <>
@@ -93,7 +100,12 @@ export function StartTripButton({
       {error && (
         <p className="text-xs text-destructive text-center">{error}</p>
       )}
-      {!canStart && !isLocked && participantCount === 0 && (
+      {!canStart && tripStatus === "EXPIRED" && (
+        <p className="text-xs text-muted-foreground text-center">
+          이 그룹은 기간이 만료되어 출발할 수 없습니다.
+        </p>
+      )}
+      {!canStart && !isLocked && tripStatus !== "EXPIRED" && participantCount === 0 && (
         <p className="text-xs text-muted-foreground text-center">
           참여자가 없어 출발할 수 없습니다.
         </p>
@@ -101,6 +113,8 @@ export function StartTripButton({
     </div>
   );
 }
+
+
 
 
 

@@ -25,6 +25,7 @@ interface InviteButtonProps {
   pickupRequestId: string;
   isTripLocked: boolean;
   hasPendingInvite?: boolean;
+  isDateMatch?: boolean;
 }
 
 export function InviteButton({
@@ -32,13 +33,14 @@ export function InviteButton({
   pickupRequestId,
   isTripLocked,
   hasPendingInvite = false,
+  isDateMatch = true,
 }: InviteButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleInvite = async () => {
-    if (isTripLocked || hasPendingInvite) {
+    if (isTripLocked || hasPendingInvite || !isDateMatch) {
       return;
     }
 
@@ -74,6 +76,24 @@ export function InviteButton({
         >
           수락 대기 중
         </Button>
+      </div>
+    );
+  }
+
+  // 날짜 불일치인 경우: "날짜 불일치" 버튼 (disabled)
+  if (!isDateMatch) {
+    return (
+      <div>
+        <Button
+          className="w-full"
+          disabled={true}
+          variant="secondary"
+        >
+          날짜 불일치
+        </Button>
+        <p className="text-xs text-muted-foreground mt-2 text-center">
+          그룹 출발 날짜와 요청 날짜가 달라 초대할 수 없습니다.
+        </p>
       </div>
     );
   }

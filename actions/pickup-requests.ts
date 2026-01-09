@@ -356,6 +356,7 @@ export async function getAvailablePickupRequests() {
       return {
         id: request.id,
         pickup_time: timeLabel,
+        pickup_time_raw: request.pickup_time, // 날짜 비교용 원본 값
         origin_area: originArea,
         destination_area: destinationArea,
         destination_type: destinationType,
@@ -376,6 +377,109 @@ export async function getAvailablePickupRequests() {
       success: false,
       error: "예상치 못한 오류가 발생했습니다.",
       data: [],
+    };
+  }
+}
+
+/**
+ * 도착 확인 처리
+ *
+ * 요청자가 도착 완료를 확인합니다.
+ * progress_stage를 'COMPLETED'로 업데이트합니다 (선택사항, MVP에서는 변경 안 해도 됨).
+ *
+ * @param pickupRequestId - 픽업 요청 ID
+ * @returns 성공/실패 결과 및 에러 메시지
+ */
+export async function confirmArrival(pickupRequestId: string) {
+  try {
+    console.group("✅ [도착 확인 처리] 시작");
+    console.log("1️⃣ Pickup Request ID:", pickupRequestId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회 (요청자)
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ Profile 조회 완료:", { profileId: profile.id });
+
+    // 3. 픽업 요청 조회 및 소유자 확인
+    const { data: pickupRequest, error: requestError } = await supabase
+      .from("pickup_requests")
+      .select("id, requester_profile_id, progress_stage")
+      .eq("id", pickupRequestId)
+      .single();
+
+    if (requestError || !pickupRequest) {
+      console.error("❌ 픽업 요청 조회 실패:", requestError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "픽업 요청을 찾을 수 없습니다.",
+      };
+    }
+
+    if (pickupRequest.requester_profile_id !== profile.id) {
+      console.error("❌ 픽업 요청 소유자가 아님");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 픽업 요청에 대한 접근 권한이 없습니다.",
+      };
+    }
+    console.log("✅ 픽업 요청 소유자 확인 완료");
+
+    // 4. progress_stage가 'ARRIVED'인지 확인
+    if (pickupRequest.progress_stage !== "ARRIVED") {
+      console.error("❌ 도착 확인 불가능한 상태:", pickupRequest.progress_stage);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "도착 완료된 픽업 요청에만 확인할 수 있습니다.",
+      };
+    }
+    console.log("✅ 픽업 요청 상태 확인 완료:", { progressStage: pickupRequest.progress_stage });
+
+    // 5. progress_stage = 'COMPLETED' 업데이트 (선택사항, MVP에서는 변경 안 해도 됨)
+    // 현재는 주석 처리하여 변경하지 않음
+
+    console.log("✅ 도착 확인 처리 완료");
+    console.groupEnd();
+
+    // 6. 캐시 무효화
+    revalidatePath("/my");
+    revalidatePath(`/pickup-requests/${pickupRequestId}`);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("❌ confirmArrival 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다. 다시 시도해주세요.",
     };
   }
 }

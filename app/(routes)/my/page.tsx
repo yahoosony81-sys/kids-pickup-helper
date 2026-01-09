@@ -77,7 +77,7 @@ export default async function MyPage() {
             내가 신청한 픽업 요청 ({ongoingRequests.length})
           </TabsTrigger>
           <TabsTrigger value="trips">
-            내가 제공한 픽업 ({ongoingInvitations.length})
+            내가 제공중인 픽업 ({ongoingInvitations.length})
           </TabsTrigger>
         </TabsList>
         <TabsContent value="requests" className="mt-6">

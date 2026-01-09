@@ -16,9 +16,12 @@
 import { getInvitationsForRequest } from "@/actions/invitations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InvitationCard } from "@/components/invitations/invitation-card";
+import { PickupProgressTimeline } from "@/components/my/pickup-progress-timeline";
+import { ArrivalConfirmation } from "@/components/my/arrival-confirmation";
 import { MapPin } from "lucide-react";
 import { formatDateTime, formatDateTimeShort } from "@/lib/utils";
 import Link from "next/link";
+import { OngoingRequestsClient } from "./ongoing-requests-client";
 
 // 상태별 배지 스타일
 const statusConfig: Record<
@@ -180,6 +183,25 @@ export async function OngoingRequestsTab({
                         </p>
                       </div>
                     )}
+
+                    {/* 픽업 진행 타임라인 (MATCHED 이상 상태에서만 표시) */}
+                    {(request.status === "MATCHED" ||
+                      request.status === "IN_PROGRESS" ||
+                      request.status === "COMPLETED") && (
+                      <div className="pt-3 border-t">
+                        <PickupProgressTimeline
+                          progressStage={request.progress_stage}
+                          showConfirmButton={request.progress_stage === "ARRIVED"}
+                        />
+                        {/* 도착 확인 UI (ARRIVED 상태에서만 표시) */}
+                        {request.progress_stage === "ARRIVED" && (
+                          <OngoingRequestsClient
+                            pickupRequestId={request.id}
+                            progressStage={request.progress_stage}
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -190,4 +212,5 @@ export async function OngoingRequestsTab({
     </div>
   );
 }
+
 

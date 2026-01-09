@@ -32,6 +32,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getSlotKey } from "@/lib/utils/slot";
+import { expireTripIfPast } from "@/lib/utils/trip-expiration";
 
 /**
  * 시간 규칙 정리 함수
@@ -179,6 +180,24 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
     }
     console.log("✅ Trip 소유자 확인 완료");
 
+    // 4-1. 만료 처리
+    const { expired, trip: updatedTrip } = await expireTripIfPast(tripId, supabase);
+    if (expired && updatedTrip) {
+      console.log("⏰ Trip 만료 처리 완료:", { tripId: updatedTrip.id, status: updatedTrip.status });
+      // 업데이트된 Trip 사용
+      trip.status = updatedTrip.status;
+    }
+
+    // 4-2. EXPIRED 상태 확인
+    if (trip.status === "EXPIRED") {
+      console.error("❌ Trip이 EXPIRED 상태:", { status: trip.status });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 그룹은 기간이 만료되었습니다.",
+      };
+    }
+
     // 5. Trip LOCK 상태 확인 (status = 'LOCKED' 또는 is_locked = true)
     if (trip.status === "LOCKED" || trip.is_locked) {
       console.error("❌ Trip이 LOCK됨:", { status: trip.status, isLocked: trip.is_locked });
@@ -214,7 +233,7 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
     // 6. 픽업 요청 조회 및 요청자 Profile ID 확인
     const { data: pickupRequest, error: requestError } = await supabase
       .from("pickup_requests")
-      .select("id, requester_profile_id, status")
+      .select("id, requester_profile_id, status, pickup_time")
       .eq("id", pickupRequestId)
       .single();
 
@@ -242,6 +261,32 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
       };
     }
     console.log("✅ 픽업 요청 상태 확인 완료 (REQUESTED)");
+
+    // 7-1. 날짜 불일치 검증: 그룹 날짜와 요청 날짜가 일치하는지 확인
+    if (trip.scheduled_start_at && pickupRequest.pickup_time) {
+      const tripDate = new Date(trip.scheduled_start_at);
+      const requestDate = new Date(pickupRequest.pickup_time);
+      
+      // 날짜만 비교 (YYYY-MM-DD)
+      const tripDateStr = tripDate.toISOString().split("T")[0];
+      const requestDateStr = requestDate.toISOString().split("T")[0];
+      
+      if (tripDateStr !== requestDateStr) {
+        console.error("❌ 날짜 불일치:", {
+          tripDate: tripDateStr,
+          requestDate: requestDateStr,
+        });
+        console.groupEnd();
+        return {
+          success: false,
+          error: "요청 날짜가 그룹 날짜와 달라 초대할 수 없습니다.",
+        };
+      }
+      console.log("✅ 날짜 일치 확인 완료:", {
+        tripDate: tripDateStr,
+        requestDate: requestDateStr,
+      });
+    }
 
     // 8. 요청자 PENDING 초대 1개 제한 검증
     const { data: existingInvitation, error: invitationCheckError } = await supabase
@@ -361,7 +406,7 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
     // 11. 캐시 무효화
     revalidatePath(`/trips/${tripId}/invite`);
     revalidatePath("/trips");
-    revalidatePath("/my"); // 마이페이지 "내가 제공한 픽업" 목록 갱신
+    revalidatePath("/my"); // 마이페이지 "내가 제공중인 픽업" 목록 갱신
 
     return {
       success: true,
@@ -1065,7 +1110,23 @@ export async function acceptInvitation(invitationId: string) {
       };
     }
 
-    // 3-1. 시간 규칙 정리 (출발 1시간 전 PENDING EXPIRED 처리)
+    // 3-1. Trip 만료 처리 및 EXPIRED 상태 확인
+    const { expired, trip: updatedTrip } = await expireTripIfPast(invitation.trip_id, supabase);
+    if (expired && updatedTrip) {
+      console.log("⏰ Trip 만료 처리 완료:", { tripId: updatedTrip.id, status: updatedTrip.status });
+      
+      // EXPIRED 상태면 초대 수락 불가
+      if (updatedTrip.status === "EXPIRED") {
+        console.error("❌ Trip이 EXPIRED 상태:", { status: updatedTrip.status });
+        console.groupEnd();
+        return {
+          success: false,
+          error: "이 그룹은 기간이 만료되었습니다.",
+        };
+      }
+    }
+
+    // 3-2. 시간 규칙 정리 (출발 1시간 전 PENDING EXPIRED 처리)
     await enforceTimeRules(invitation.trip_id, supabase);
     
     // 시간 규칙 정리 후 다시 초대 조회 (상태가 변경되었을 수 있음)
