@@ -251,7 +251,31 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
       status: pickupRequest.status,
     });
 
-    // 7. 픽업 요청 상태 확인 (REQUESTED만 초대 가능)
+    // 7. 픽업 요청 만료 처리 및 상태 확인
+    const { expireRequestIfPast } = await import("@/lib/utils/request-expiration");
+    const { expired: requestExpired, request: updatedRequest } = await expireRequestIfPast(
+      pickupRequestId,
+      supabase
+    );
+    if (requestExpired && updatedRequest) {
+      console.log("⏰ Request 만료 처리 완료:", {
+        requestId: updatedRequest.id,
+        status: updatedRequest.status,
+      });
+      pickupRequest.status = updatedRequest.status;
+    }
+
+    // 7-1. EXPIRED 상태 확인
+    if (pickupRequest.status === "EXPIRED") {
+      console.error("❌ 픽업 요청이 EXPIRED 상태:", { status: pickupRequest.status });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이미 픽업 시간이 지나 비활성화된 요청입니다.",
+      };
+    }
+
+    // 7-2. 픽업 요청 상태 확인 (REQUESTED만 초대 가능)
     if (pickupRequest.status !== "REQUESTED") {
       console.error("❌ 픽업 요청 상태가 REQUESTED가 아님:", { status: pickupRequest.status });
       console.groupEnd();
@@ -1095,7 +1119,8 @@ export async function acceptInvitation(invitationId: string) {
         *,
         pickup_request:pickup_requests!inner(
           id,
-          pickup_time
+          pickup_time,
+          status
         )
       `)
       .eq("id", invitationId)
@@ -1110,7 +1135,32 @@ export async function acceptInvitation(invitationId: string) {
       };
     }
 
-    // 3-1. Trip 만료 처리 및 EXPIRED 상태 확인
+    // 3-1. Request 만료 처리 및 EXPIRED 상태 확인
+    if (invitation.pickup_request) {
+      const { expireRequestIfPast } = await import("@/lib/utils/request-expiration");
+      const { expired: requestExpired, request: updatedRequest } = await expireRequestIfPast(
+        invitation.pickup_request.id,
+        supabase
+      );
+      if (requestExpired && updatedRequest) {
+        console.log("⏰ Request 만료 처리 완료:", {
+          requestId: updatedRequest.id,
+          status: updatedRequest.status,
+        });
+        
+        // EXPIRED 상태면 초대 수락 불가
+        if (updatedRequest.status === "EXPIRED") {
+          console.error("❌ Request가 EXPIRED 상태:", { status: updatedRequest.status });
+          console.groupEnd();
+          return {
+            success: false,
+            error: "이미 픽업 시간이 지나 비활성화된 요청입니다.",
+          };
+        }
+      }
+    }
+
+    // 3-2. Trip 만료 처리 및 EXPIRED 상태 확인
     const { expired, trip: updatedTrip } = await expireTripIfPast(invitation.trip_id, supabase);
     if (expired && updatedTrip) {
       console.log("⏰ Trip 만료 처리 완료:", { tripId: updatedTrip.id, status: updatedTrip.status });
@@ -1126,7 +1176,7 @@ export async function acceptInvitation(invitationId: string) {
       }
     }
 
-    // 3-2. 시간 규칙 정리 (출발 1시간 전 PENDING EXPIRED 처리)
+    // 3-3. 시간 규칙 정리 (출발 1시간 전 PENDING EXPIRED 처리)
     await enforceTimeRules(invitation.trip_id, supabase);
     
     // 시간 규칙 정리 후 다시 초대 조회 (상태가 변경되었을 수 있음)
@@ -1136,7 +1186,8 @@ export async function acceptInvitation(invitationId: string) {
         *,
         pickup_request:pickup_requests!inner(
           id,
-          pickup_time
+          pickup_time,
+          status
         )
       `)
       .eq("id", invitationId)
@@ -1151,7 +1202,17 @@ export async function acceptInvitation(invitationId: string) {
       };
     }
 
-    // EXPIRED로 변경되었으면 실패 처리
+    // 3-4. Request EXPIRED 상태 재확인 (시간 규칙 정리 후)
+    if (updatedInvitation.pickup_request?.status === "EXPIRED") {
+      console.error("❌ Request가 EXPIRED 상태 (시간 규칙 정리 후)");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이미 픽업 시간이 지나 비활성화된 요청입니다.",
+      };
+    }
+
+    // 3-5. 초대가 EXPIRED로 변경되었으면 실패 처리
     if (updatedInvitation.status === "EXPIRED") {
       console.error("❌ 초대가 만료됨 (출발 1시간 전 규칙 적용)");
       console.groupEnd();

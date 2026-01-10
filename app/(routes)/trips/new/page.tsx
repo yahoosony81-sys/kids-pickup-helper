@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation";
 import { createTrip } from "@/actions/trips";
 import { tripSchema, type TripFormData } from "@/lib/validations/trip";
 import { generateGroupTitle } from "@/lib/utils/pickup-group";
+import { getMonthStringFromDate, getDateStringFromDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -43,6 +44,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
+import { PickupCalendar } from "@/components/calendar/pickup-calendar";
+import { TimeSlotPicker } from "@/components/calendar/time-slot-picker";
+import {
+  getCalendarStatsForProvideCreate,
+  type CalendarStat,
+} from "@/actions/calendar-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -50,12 +57,25 @@ export default function NewTripPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [minDateTime, setMinDateTime] = useState<string>("");
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [calendarStats, setCalendarStats] = useState<CalendarStat[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // 클라이언트에서만 min 값 설정 (Hydration 오류 방지)
+  // 현재 월의 집계 데이터 로드
   useEffect(() => {
-    setMinDateTime(new Date().toISOString().slice(0, 16));
-  }, []);
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+      const result = await getCalendarStatsForProvideCreate(monthStr);
+      if (result.success) {
+        setCalendarStats(result.data);
+      }
+      setIsLoadingStats(false);
+    };
+    loadStats();
+  }, [currentMonth]);
 
   const form = useForm<TripFormData>({
     resolver: zodResolver(tripSchema),
@@ -64,6 +84,31 @@ export default function NewTripPage() {
       title: "",
     },
   });
+
+  // 날짜 선택 핸들러
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedTime(null); // 날짜 변경 시 시간 초기화
+  };
+
+  // 시간 선택 핸들러
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    // 날짜와 시간을 결합하여 scheduled_start_at 필드에 설정
+    if (selectedDate) {
+      const [hours, minutes] = time.split(":").map(Number);
+      const dateTime = new Date(selectedDate);
+      dateTime.setHours(hours, minutes, 0, 0);
+      // YYYY-MM-DDTHH:mm 형식으로 변환
+      const year = dateTime.getFullYear();
+      const month = String(dateTime.getMonth() + 1).padStart(2, "0");
+      const day = String(dateTime.getDate()).padStart(2, "0");
+      const hoursStr = String(hours).padStart(2, "0");
+      const minutesStr = String(minutes).padStart(2, "0");
+      const dateTimeStr = `${year}-${month}-${day}T${hoursStr}:${minutesStr}`;
+      form.setValue("scheduled_start_at", dateTimeStr);
+    }
+  };
 
   // 출발 시간 변경 시 그룹명 자동 제안
   const scheduledStartAt = form.watch("scheduled_start_at");
@@ -85,9 +130,27 @@ export default function NewTripPage() {
     setSubmitError(null);
 
     try {
+      // datetime-local 형식("YYYY-MM-DDTHH:mm")을 한국 시간대(KST, UTC+9)로 명시적으로 변환
+      let scheduledStartAtISO: string;
+      if (data.scheduled_start_at.includes("T") && !data.scheduled_start_at.includes("Z") && !data.scheduled_start_at.includes("+")) {
+        // 로컬 시간을 한국 시간대로 해석하여 UTC로 변환
+        const [datePart, timePart] = data.scheduled_start_at.split("T");
+        const [year, month, day] = datePart.split("-").map(Number);
+        const [hour, minute] = timePart.split(":").map(Number);
+        
+        // 한국 시간대(UTC+9)를 UTC로 변환
+        // 한국 시간 = UTC + 9시간이므로, UTC = 한국 시간 - 9시간
+        // Date.UTC를 사용하여 UTC 시간을 직접 생성 (hour - 9가 음수여도 자동으로 전날로 처리됨)
+        const utcDate = new Date(Date.UTC(year, month - 1, day, hour - 9, minute));
+        scheduledStartAtISO = utcDate.toISOString();
+      } else {
+        // 이미 ISO 형식이거나 타임존 정보가 있는 경우 그대로 사용
+        scheduledStartAtISO = new Date(data.scheduled_start_at).toISOString();
+      }
+
       const result = await createTrip({
         title: data.title,
-        scheduled_start_at: data.scheduled_start_at,
+        scheduled_start_at: scheduledStartAtISO,
       });
 
       if (!result.success) {
@@ -96,8 +159,11 @@ export default function NewTripPage() {
         return;
       }
 
-      // 성공 시 목록 페이지로 리다이렉트
-      router.push("/trips");
+      // 성공 시 마이페이지로 리다이렉트 (해당 월/날짜로 이동)
+      // scheduled_start_at에서 월과 날짜 추출
+      const monthStr = getMonthStringFromDate(scheduledStartAtISO);
+      const dateStr = getDateStringFromDate(scheduledStartAtISO);
+      router.push(`/my?month=${monthStr}&date=${dateStr}&tab=trips`);
     } catch (error) {
       console.error("픽업 그룹 생성 에러:", error);
       setSubmitError("예상치 못한 오류가 발생했습니다. 다시 시도해주세요.");
@@ -131,7 +197,7 @@ export default function NewTripPage() {
                 </div>
               )}
 
-              {/* 출발 예정 시각 */}
+              {/* 출발 예정 시각 선택 (달력 + 시간 슬롯) */}
               <FormField
                 control={form.control}
                 name="scheduled_start_at"
@@ -139,11 +205,34 @@ export default function NewTripPage() {
                   <FormItem>
                     <FormLabel>출발 예정 시각</FormLabel>
                     <FormControl>
-                      <Input
-                        type="datetime-local"
-                        {...field}
-                        min={minDateTime}
-                      />
+                      <div className="space-y-4">
+                        {/* 달력 */}
+                        <div className="border rounded-lg p-4">
+                          <PickupCalendar
+                            mode="create-provide"
+                            month={currentMonth}
+                            onMonthChange={setCurrentMonth}
+                            onDateClick={handleDateClick}
+                            stats={calendarStats}
+                          />
+                        </div>
+                        {/* 시간 슬롯 선택 */}
+                        {selectedDate && (
+                          <div className="border rounded-lg p-4">
+                            <TimeSlotPicker
+                              selectedDate={selectedDate}
+                              selectedTime={selectedTime}
+                              onTimeSelect={handleTimeSelect}
+                            />
+                          </div>
+                        )}
+                        {/* 선택된 날짜/시간 표시 */}
+                        {selectedDate && selectedTime && (
+                          <div className="text-sm text-muted-foreground">
+                            선택된 시간: {selectedDate.toLocaleDateString("ko-KR")} {selectedTime}
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormDescription>
                       픽업 그룹의 출발 예정 시각을 선택해주세요.

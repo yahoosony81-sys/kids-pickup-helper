@@ -40,22 +40,40 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NaverMapSearch } from "@/components/map/naver-map-search";
 import { Loader2 } from "lucide-react";
+import { PickupCalendar } from "@/components/calendar/pickup-calendar";
+import { TimeSlotPicker } from "@/components/calendar/time-slot-picker";
+import {
+  getCalendarStatsForRequestCreate,
+  type CalendarStat,
+} from "@/actions/calendar-stats";
 
 export default function NewPickupRequestPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [minDateTime, setMinDateTime] = useState<string>("");
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [calendarStats, setCalendarStats] = useState<CalendarStat[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // 클라이언트에서만 min 값 설정 (Hydration 오류 방지)
+  // 현재 월의 집계 데이터 로드
   useEffect(() => {
-    setMinDateTime(new Date().toISOString().slice(0, 16));
-  }, []);
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+      const result = await getCalendarStatsForRequestCreate(monthStr);
+      if (result.success) {
+        setCalendarStats(result.data);
+      }
+      setIsLoadingStats(false);
+    };
+    loadStats();
+  }, [currentMonth]);
 
   const form = useForm<PickupRequestFormData>({
     resolver: zodResolver(pickupRequestSchema),
@@ -69,6 +87,31 @@ export default function NewPickupRequestPage() {
       destination_lng: 0,
     },
   });
+
+  // 날짜 선택 핸들러
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedTime(null); // 날짜 변경 시 시간 초기화
+  };
+
+  // 시간 선택 핸들러
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    // 날짜와 시간을 결합하여 pickup_time 필드에 설정
+    if (selectedDate) {
+      const [hours, minutes] = time.split(":").map(Number);
+      const dateTime = new Date(selectedDate);
+      dateTime.setHours(hours, minutes, 0, 0);
+      // YYYY-MM-DDTHH:mm 형식으로 변환
+      const year = dateTime.getFullYear();
+      const month = String(dateTime.getMonth() + 1).padStart(2, "0");
+      const day = String(dateTime.getDate()).padStart(2, "0");
+      const hoursStr = String(hours).padStart(2, "0");
+      const minutesStr = String(minutes).padStart(2, "0");
+      const dateTimeStr = `${year}-${month}-${day}T${hoursStr}:${minutesStr}`;
+      form.setValue("pickup_time", dateTimeStr);
+    }
+  };
 
   const onSubmit = async (data: PickupRequestFormData) => {
     setIsSubmitting(true);
@@ -104,7 +147,7 @@ export default function NewPickupRequestPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* 픽업 시간 */}
+              {/* 픽업 시간 선택 (달력 + 시간 슬롯) */}
               <FormField
                 control={form.control}
                 name="pickup_time"
@@ -112,11 +155,34 @@ export default function NewPickupRequestPage() {
                   <FormItem>
                     <FormLabel>픽업 시간</FormLabel>
                     <FormControl>
-                      <Input
-                        type="datetime-local"
-                        {...field}
-                        min={minDateTime}
-                      />
+                      <div className="space-y-4">
+                        {/* 달력 */}
+                        <div className="border rounded-lg p-4">
+                          <PickupCalendar
+                            mode="create-request"
+                            month={currentMonth}
+                            onMonthChange={setCurrentMonth}
+                            onDateClick={handleDateClick}
+                            stats={calendarStats}
+                          />
+                        </div>
+                        {/* 시간 슬롯 선택 */}
+                        {selectedDate && (
+                          <div className="border rounded-lg p-4">
+                            <TimeSlotPicker
+                              selectedDate={selectedDate}
+                              selectedTime={selectedTime}
+                              onTimeSelect={handleTimeSelect}
+                            />
+                          </div>
+                        )}
+                        {/* 선택된 날짜/시간 표시 */}
+                        {selectedDate && selectedTime && (
+                          <div className="text-sm text-muted-foreground">
+                            선택된 시간: {selectedDate.toLocaleDateString("ko-KR")} {selectedTime}
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

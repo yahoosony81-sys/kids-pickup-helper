@@ -18,7 +18,7 @@
  * - @/components/ui/card: 카드 컴포넌트
  */
 
-import { getMyCompletedTrips } from "@/actions/trips";
+import { getMyTrips } from "@/actions/trips";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -30,6 +30,11 @@ const statusConfig: Record<
   string,
   { label: string; className: string }
 > = {
+  EXPIRED: {
+    label: "서비스 운행 무효",
+    className:
+      "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  },
   ARRIVED: {
     label: "도착",
     className:
@@ -45,7 +50,7 @@ const statusConfig: Record<
 export const dynamic = "force-dynamic";
 
 export default async function PastTripsPage() {
-  const result = await getMyCompletedTrips();
+  const result = await getMyTrips();
 
   if (!result.success) {
     return (
@@ -59,7 +64,19 @@ export default async function PastTripsPage() {
     );
   }
 
-  const pastTrips = result.data || [];
+  // 지난 픽업 제공 필터링 (EXPIRED, ARRIVED, COMPLETED)
+  const pastTrips = (result.data || [])
+    .filter((trip: any) => ["EXPIRED", "ARRIVED", "COMPLETED"].includes(trip.status))
+    .sort((a: any, b: any) => {
+      // arrived_at이 있으면 우선 정렬
+      if (a.arrived_at && !b.arrived_at) return -1;
+      if (!a.arrived_at && b.arrived_at) return 1;
+      if (a.arrived_at && b.arrived_at) {
+        return new Date(b.arrived_at).getTime() - new Date(a.arrived_at).getTime();
+      }
+      // arrived_at이 없으면 created_at 기준
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -72,7 +89,7 @@ export default async function PastTripsPage() {
         </Button>
         <h1 className="text-2xl font-bold">지난 픽업 제공</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          완료된 픽업 제공 목록을 확인할 수 있습니다.
+          완료되거나 만료된 픽업 제공 목록을 확인할 수 있습니다.
         </p>
       </div>
 
@@ -80,7 +97,7 @@ export default async function PastTripsPage() {
         <Card>
           <CardContent className="pt-6 text-center py-12">
             <p className="text-muted-foreground mb-4">
-              완료된 픽업 제공이 없습니다.
+              지난 픽업 제공이 없습니다.
             </p>
             <Button asChild variant="outline">
               <Link href="/my">마이페이지로 돌아가기</Link>
@@ -162,6 +179,7 @@ export default async function PastTripsPage() {
     </div>
   );
 }
+
 
 
 

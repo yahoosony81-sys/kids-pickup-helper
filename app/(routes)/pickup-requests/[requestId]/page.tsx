@@ -48,6 +48,7 @@ const statusConfig: Record<
   ARRIVED: { label: "도착", className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
   COMPLETED: { label: "완료", className: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
   CANCELLED: { label: "취소됨", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  EXPIRED: { label: "픽업시간 지남", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
 };
 
 export default async function RequestDetailPage({ params }: RequestDetailPageProps) {
@@ -125,6 +126,8 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
     console.error("❌ ACCEPTED invitation 조회 실패:", error);
   }
 
+  const isExpired = pickupRequest.status === "EXPIRED";
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       {/* 헤더 */}
@@ -139,7 +142,7 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
 
       <div className="space-y-6">
         {/* 픽업 요청 정보 카드 */}
-        <Card>
+        <Card className={isExpired ? "opacity-60" : ""}>
           <CardHeader>
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -178,8 +181,25 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
               </div>
             </div>
 
-            {/* 메시지 버튼 (ACCEPTED invitation이 있는 경우만) */}
-            {acceptedInvitation && tripId && (
+            {/* EXPIRED 상태 안내 */}
+            {isExpired && (
+              <div className="pt-4 border-t">
+                <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                      픽업시간 지남
+                    </p>
+                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                      이 요청은 픽업 예정 시간이 지나 비활성화되었습니다. 수정, 삭제, 취소 등의 작업을 수행할 수 없습니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 메시지 버튼 (ACCEPTED invitation이 있는 경우만, EXPIRED가 아닐 때만) */}
+            {acceptedInvitation && tripId && !isExpired && (
               <div className="pt-4 border-t">
                 <Button asChild variant="outline" className="w-full relative">
                   <Link href={`/trips/${tripId}/messages/${acceptedInvitation.id}`}>
@@ -198,14 +218,16 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
               </div>
             )}
 
-            {/* 취소 요청 버튼 */}
-            <div className="pt-4 border-t">
-              <CancelRequestButton
-                pickupRequestId={pickupRequest.id}
-                status={pickupRequest.status}
-                pickupTime={pickupRequest.pickup_time}
-              />
-            </div>
+            {/* 취소 요청 버튼 (EXPIRED가 아닐 때만) */}
+            {!isExpired && (
+              <div className="pt-4 border-t">
+                <CancelRequestButton
+                  pickupRequestId={pickupRequest.id}
+                  status={pickupRequest.status}
+                  pickupTime={pickupRequest.pickup_time}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -47,3 +47,74 @@ export function formatDateTimeShort(dateString: string, prefix: string = "등록
   
   return `${prefix} ${year}-${month}-${day} ${hours}:${minutes}`;
 }
+
+/**
+ * 한국 시간대(Asia/Seoul) 기준으로 현재 날짜의 00:00:00을 반환
+ * 
+ * @returns 한국 시간 기준 오늘 00:00:00의 Date 객체 (UTC로 변환됨)
+ */
+export function getTodayStartInKST(): Date {
+  const now = new Date();
+  // Intl API를 사용하여 한국 시간대의 현재 날짜/시간 문자열 생성
+  const kstFormatter = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  
+  const parts = kstFormatter.formatToParts(now);
+  const year = parseInt(parts.find(p => p.type === "year")?.value || "0");
+  const month = parseInt(parts.find(p => p.type === "month")?.value || "0") - 1; // 0-based
+  const day = parseInt(parts.find(p => p.type === "day")?.value || "0");
+  
+  // 한국 시간대의 오늘 00:00:00을 UTC Date 객체로 생성
+  // Date.UTC를 사용하여 UTC 시간으로 변환 (한국 시간 = UTC + 9시간)
+  return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+}
+
+/**
+ * 한국 시간대(Asia/Seoul) 기준으로 날짜가 과거인지 확인
+ * 
+ * @param dateString - ISO 8601 형식의 날짜 문자열
+ * @returns scheduled_start_at이 오늘 00:00:00 이전이면 true (History), 아니면 false (Active)
+ */
+export function isPastDateInKST(dateString: string | null | undefined): boolean {
+  if (!dateString) return false;
+  
+  const targetDate = new Date(dateString);
+  const todayStart = getTodayStartInKST();
+  
+  return targetDate < todayStart;
+}
+
+/**
+ * 한국 시간대(Asia/Seoul) 기준으로 날짜 문자열에서 YYYY-MM 형식의 월 문자열 추출
+ * 
+ * @param dateString - ISO 8601 형식의 날짜 문자열
+ * @returns "YYYY-MM" 형식의 문자열 (예: "2026-01")
+ */
+export function getMonthStringFromDate(dateString: string): string {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+/**
+ * 한국 시간대(Asia/Seoul) 기준으로 날짜 문자열에서 YYYY-MM-DD 형식의 날짜 문자열 추출
+ * 
+ * @param dateString - ISO 8601 형식의 날짜 문자열
+ * @returns "YYYY-MM-DD" 형식의 문자열 (예: "2026-01-10")
+ */
+export function getDateStringFromDate(dateString: string): string {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

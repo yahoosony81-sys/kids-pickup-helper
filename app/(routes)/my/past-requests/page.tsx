@@ -31,6 +31,11 @@ const statusConfig: Record<
   string,
   { label: string; className: string }
 > = {
+  EXPIRED: {
+    label: "픽업시간 지남",
+    className:
+      "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  },
   ARRIVED: {
     label: "도착",
     className:
@@ -60,9 +65,9 @@ export default async function PastRequestsPage() {
     );
   }
 
-  // 완료된 픽업 요청만 필터링 (ARRIVED, COMPLETED)
+  // 지난 픽업 요청 필터링 (EXPIRED, ARRIVED, COMPLETED)
   const pastRequests = (result.data || [])
-    .filter((req: any) => ["ARRIVED", "COMPLETED"].includes(req.status))
+    .filter((req: any) => ["EXPIRED", "ARRIVED", "COMPLETED"].includes(req.status))
     .sort(
       (a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -79,7 +84,7 @@ export default async function PastRequestsPage() {
         </Button>
         <h1 className="text-2xl font-bold">지난 픽업 요청</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          완료된 픽업 요청 목록을 확인할 수 있습니다.
+          완료되거나 만료된 픽업 요청 목록을 확인할 수 있습니다.
         </p>
       </div>
 
@@ -87,7 +92,7 @@ export default async function PastRequestsPage() {
         <Card>
           <CardContent className="pt-6 text-center py-12">
             <p className="text-muted-foreground mb-4">
-              완료된 픽업 요청이 없습니다.
+              지난 픽업 요청이 없습니다.
             </p>
             <Button asChild variant="outline">
               <Link href="/my">마이페이지로 돌아가기</Link>
@@ -161,6 +166,7 @@ export default async function PastRequestsPage() {
     </div>
   );
 }
+
 
 
 

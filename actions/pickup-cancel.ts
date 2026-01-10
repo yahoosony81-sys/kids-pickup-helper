@@ -92,6 +92,20 @@ export async function requestCancel(pickupRequestId: string) {
       pickupTime: pickupRequest.pickup_time,
     });
 
+    // 3-1. 만료 처리
+    const { expireRequestIfPast } = await import("@/lib/utils/request-expiration");
+    const { expired, request: updatedRequest } = await expireRequestIfPast(
+      pickupRequestId,
+      supabase
+    );
+    if (expired && updatedRequest) {
+      console.log("⏰ Request 만료 처리 완료:", {
+        requestId: updatedRequest.id,
+        status: updatedRequest.status,
+      });
+      pickupRequest.status = updatedRequest.status;
+    }
+
     // 4. 소유자 확인 (요청자만 취소 요청 가능)
     if (pickupRequest.requester_profile_id !== profile.id) {
       console.error("❌ 요청자가 아님:", {
@@ -106,7 +120,17 @@ export async function requestCancel(pickupRequestId: string) {
     }
     console.log("✅ 요청자 확인 완료");
 
-    // 5. 상태 검증 (REQUESTED 또는 MATCHED만 취소 요청 가능)
+    // 5. EXPIRED 상태 확인
+    if (pickupRequest.status === "EXPIRED") {
+      console.error("❌ 픽업 요청이 EXPIRED 상태:", { status: pickupRequest.status });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이미 픽업 시간이 지나 비활성화된 요청입니다.",
+      };
+    }
+
+    // 6. 상태 검증 (REQUESTED 또는 MATCHED만 취소 요청 가능)
     if (
       pickupRequest.status !== "REQUESTED" &&
       pickupRequest.status !== "MATCHED"
@@ -120,7 +144,7 @@ export async function requestCancel(pickupRequestId: string) {
     }
     console.log("✅ 상태 검증 완료:", { status: pickupRequest.status });
 
-    // 6. 상태별 취소 처리 분기
+    // 7. 상태별 취소 처리 분기
     if (pickupRequest.status === "REQUESTED") {
       // 매칭 전 취소: 즉시 자동 승인 (CANCELLED 상태로 변경)
       console.log("🔄 매칭 전 취소 처리 (자동 승인)...");
@@ -407,7 +431,31 @@ export async function approveCancel(pickupRequestId: string) {
       status: pickupRequest.status,
     });
 
-    // 4. 상태 검증 (CANCEL_REQUESTED만 승인 가능)
+    // 3-1. 만료 처리
+    const { expireRequestIfPast } = await import("@/lib/utils/request-expiration");
+    const { expired, request: updatedRequest } = await expireRequestIfPast(
+      pickupRequestId,
+      supabase
+    );
+    if (expired && updatedRequest) {
+      console.log("⏰ Request 만료 처리 완료:", {
+        requestId: updatedRequest.id,
+        status: updatedRequest.status,
+      });
+      pickupRequest.status = updatedRequest.status;
+    }
+
+    // 4. EXPIRED 상태 확인
+    if (pickupRequest.status === "EXPIRED") {
+      console.error("❌ 픽업 요청이 EXPIRED 상태:", { status: pickupRequest.status });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이미 픽업 시간이 지나 비활성화된 요청입니다.",
+      };
+    }
+
+    // 5. 상태 검증 (CANCEL_REQUESTED만 승인 가능)
     if (pickupRequest.status !== "CANCEL_REQUESTED") {
       console.error("❌ 취소 승인 불가능한 상태:", { status: pickupRequest.status });
       console.groupEnd();

@@ -96,21 +96,42 @@ export default async function InvitePage({ params }: InvitePageProps) {
   if (trip.status === "EXPIRED") {
     return (
       <div className="container mx-auto py-8 px-4 max-w-4xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-orange-600 mb-4">
-              <Lock className="h-5 w-5" />
-              <p className="font-medium">이 픽업제공은 기간이 만료되었습니다.</p>
+        <div className="mb-6">
+          <Button asChild variant="outline">
+            <Link href="/trips">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              픽업제공 목록으로
+            </Link>
+          </Button>
+        </div>
+        <Card className="opacity-60">
+          <CardHeader>
+            <CardTitle className="text-2xl">픽업 제공 정보</CardTitle>
+            <CardDescription>
+              {trip.title || `픽업제공 #${trip.id.slice(0, 8)}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+              <Lock className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                  서비스 운행 무효
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  출발 예정 시간이 지나도록 출발하지 않아 이 그룹은 만료되었습니다. 초대, 출발, 운행 시작 등의 작업을 수행할 수 없습니다.
+                </p>
+              </div>
             </div>
-            <p className="text-muted-foreground mb-4">
-              출발 예정 시간이 지나도록 출발하지 않아 만료된 픽업제공입니다. 새로운 초대를 보낼 수 없습니다.
-            </p>
-            <Button asChild>
-              <Link href="/trips">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                픽업제공 목록으로 돌아가기
-              </Link>
-            </Button>
+            {trip.scheduled_start_at && (
+              <div className="flex items-start gap-2">
+                <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-muted-foreground">출발 예정 시각</p>
+                  <p className="text-base">{formatDateTime(trip.scheduled_start_at)}</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

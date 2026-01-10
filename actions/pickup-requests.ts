@@ -27,6 +27,7 @@ import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { PickupRequestFormData } from "@/lib/validations/pickup-request";
 import { extractAreaFromAddress, detectDestinationType } from "@/lib/utils/address";
+import { expireRequestsIfPast } from "@/lib/utils/request-expiration";
 
 /**
  * 픽업 요청 등록
@@ -160,6 +161,28 @@ export async function getMyPickupRequests(status?: string) {
       };
     }
 
+    // 4. 만료 처리 (lazy cleanup): REQUESTED, MATCHED 상태인 요청만 체크
+    const activeRequests = (pickupRequests || []).filter(
+      (req) => req.status === "REQUESTED" || req.status === "MATCHED"
+    );
+    const requestIds = activeRequests.map((req) => req.id);
+
+    if (requestIds.length > 0) {
+      console.log("⏰ 만료 처리 대상 Request:", { count: requestIds.length });
+      const expiredRequestIds = await expireRequestsIfPast(requestIds, supabase);
+
+      // 만료된 Request의 상태를 업데이트
+      for (const request of pickupRequests || []) {
+        if (expiredRequestIds.includes(request.id)) {
+          request.status = "EXPIRED";
+        }
+      }
+
+      if (expiredRequestIds.length > 0) {
+        console.log("✅ 만료 처리 완료:", { count: expiredRequestIds.length });
+      }
+    }
+
     return {
       success: true,
       data: pickupRequests || [],
@@ -225,6 +248,21 @@ export async function getPickupRequestById(pickupRequestId: string) {
         error: "픽업 요청을 찾을 수 없습니다.",
         data: null,
       };
+    }
+
+    // 3-1. 만료 처리
+    const { expireRequestIfPast } = await import("@/lib/utils/request-expiration");
+    const { expired, request: updatedRequest } = await expireRequestIfPast(
+      pickupRequestId,
+      supabase
+    );
+    if (expired && updatedRequest) {
+      console.log("⏰ Request 만료 처리 완료:", {
+        requestId: updatedRequest.id,
+        status: updatedRequest.status,
+      });
+      // 업데이트된 Request 사용
+      pickupRequest.status = updatedRequest.status;
     }
 
     // 4. 소유자 확인
@@ -296,9 +334,32 @@ export async function getAvailablePickupRequests() {
     // 3. REQUESTED 상태인 픽업 요청만 조회 (requester_profile_id 포함)
     const { data: pickupRequests, error: selectError } = await supabase
       .from("pickup_requests")
-      .select("id, pickup_time, origin_text, destination_text, requester_profile_id")
+      .select("id, pickup_time, origin_text, destination_text, requester_profile_id, status")
       .eq("status", "REQUESTED")
       .order("pickup_time", { ascending: true });
+
+    // 3-1. 만료 처리 (lazy cleanup)
+    if (pickupRequests && pickupRequests.length > 0) {
+      const requestIds = pickupRequests.map((req) => req.id);
+      const expiredRequestIds = await expireRequestsIfPast(requestIds, supabase);
+
+      // 만료된 Request 제외
+      const validRequests = pickupRequests.filter(
+        (req) => !expiredRequestIds.includes(req.id)
+      );
+
+      if (expiredRequestIds.length > 0) {
+        console.log("✅ 만료된 Request 제외:", {
+          total: pickupRequests.length,
+          expired: expiredRequestIds.length,
+          valid: validRequests.length,
+        });
+      }
+
+      // 만료되지 않은 Request만 사용
+      pickupRequests.length = 0;
+      pickupRequests.push(...validRequests);
+    }
 
     if (selectError) {
       console.error("❌ 픽업 요청 목록 조회 실패:", selectError);

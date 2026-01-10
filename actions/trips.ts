@@ -71,8 +71,9 @@ export async function createTrip(data: {
     }
     console.log("✅ Profile 조회 완료:", { profileId: profile.id });
 
-    // 3. scheduled_start_at을 ISO 문자열로 변환 (datetime-local은 "YYYY-MM-DDTHH:mm" 형식)
-    const scheduledStartAt = new Date(data.scheduled_start_at).toISOString();
+    // 3. scheduled_start_at 처리
+    // 클라이언트에서 이미 ISO 형식(UTC)으로 변환되어 전송되므로 그대로 사용
+    const scheduledStartAt = data.scheduled_start_at;
 
     // 4. Trip 생성
     const { data: trip, error: insertError } = await supabase
@@ -220,7 +221,96 @@ export async function getMyCompletedTrips() {
 }
 
 /**
+ * 내 Trip 목록 조회 (테스트 카드 포함)
+ * 
+ * 마이페이지 캘린더 이력에서 사용. 테스트 카드도 포함하여 표시.
+ * 
+ * @param status - 상태 필터링 (선택사항)
+ * @returns Trip 목록 (테스트 카드 포함)
+ */
+export async function getMyTripsIncludingTest(status?: string) {
+  try {
+    console.group("🚗 [Trip 목록 조회 (테스트 포함)] 시작");
+    
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: [],
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+        data: [],
+      };
+    }
+    console.log("✅ Profile 조회 완료:", { profileId: profile.id });
+
+    // 3. Trip 목록 조회 (테스트 카드 포함)
+    let query = supabase
+      .from("trips")
+      .select("*")
+      .eq("provider_profile_id", profile.id)
+      // is_test 필터 없음: 테스트 카드도 포함
+      .order("created_at", { ascending: false });
+
+    // 상태 필터링 (선택사항)
+    if (status) {
+      query = query.eq("status", status);
+      console.log("📋 상태 필터링:", { status });
+    }
+
+    const { data: trips, error: selectError } = await query;
+
+    if (selectError) {
+      console.error("❌ Trip 목록 조회 실패:", selectError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "Trip 목록을 불러오는데 실패했습니다.",
+        data: [],
+      };
+    }
+
+    console.log("✅ Trip 목록 조회 완료:", { count: trips?.length || 0 });
+    console.groupEnd();
+
+    return {
+      success: true,
+      data: trips || [],
+    };
+  } catch (error) {
+    console.error("❌ getMyTripsIncludingTest 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
+      data: [],
+    };
+  }
+}
+
+/**
  * 내 Trip 목록 조회
+ * 
+ * 제공하기 화면 및 일반 목록에서 사용. 테스트 카드는 제외.
  */
 export async function getMyTrips(status?: string) {
   try {
@@ -263,6 +353,7 @@ export async function getMyTrips(status?: string) {
       .from("trips")
       .select("*")
       .eq("provider_profile_id", profile.id)
+      .eq("is_test", false)  // 테스트 카드 제외 (제공하기 화면용)
       .order("created_at", { ascending: false });
 
     // 상태 필터링 (선택사항)
@@ -317,6 +408,10 @@ export async function getMyTrips(status?: string) {
         console.log("🔒 출발 30분 전 도달, 그룹 LOCK 처리:", { tripId: trip.id });
 
         // 그룹 LOCK
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trips.ts:320',message:'Before LOCK update',data:{tripId:trip.id,currentStatus:trip.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        
         const { error: lockError } = await supabase
           .from("trips")
           .update({
@@ -325,8 +420,19 @@ export async function getMyTrips(status?: string) {
           })
           .eq("id", trip.id);
 
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trips.ts:328',message:'After LOCK update: error check',data:{hasError:!!lockError,errorMessage:lockError?.message,errorCode:lockError?.code,errorFull:lockError?JSON.stringify(lockError,Object.getOwnPropertyNames(lockError)):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+
         if (lockError) {
-          console.error("❌ 그룹 LOCK 처리 실패:", lockError);
+          console.error("❌ 그룹 LOCK 처리 실패:", {
+            tripId: trip.id,
+            message: lockError.message || "알 수 없는 에러",
+            code: lockError.code,
+            details: lockError.details,
+            hint: lockError.hint,
+            errorFull: JSON.stringify(lockError, Object.getOwnPropertyNames(lockError)),
+          });
           // 에러가 발생해도 계속 진행
         } else {
           console.log("✅ 그룹 LOCK 처리 완료:", { tripId: trip.id });
