@@ -16,7 +16,6 @@
  *
  * @dependencies
  * - react-day-picker: 달력 라이브러리
- * - @/components/ui/button: 버튼 컴포넌트
  */
 
 "use client";
@@ -24,7 +23,6 @@
 import { useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CalendarStat } from "@/actions/calendar-stats";
 import "react-day-picker/dist/style.css";
@@ -103,20 +101,6 @@ export function PickupCalendar({
     onDateClick(date);
   };
 
-  // 이전 달로 이동
-  const handlePreviousMonth = () => {
-    const newMonth = new Date(month);
-    newMonth.setMonth(month.getMonth() - 1);
-    onMonthChange(newMonth);
-  };
-
-  // 다음 달로 이동
-  const handleNextMonth = () => {
-    const newMonth = new Date(month);
-    newMonth.setMonth(month.getMonth() + 1);
-    onMonthChange(newMonth);
-  };
-
   // 날짜별 모디파이어 (집계 데이터가 있는 날짜)
   const modifiers = {
     hasStats: (date: Date) => {
@@ -178,24 +162,54 @@ export function PickupCalendar({
             }
             return <ChevronRight className={cn("h-4 w-4", className)} {...props} />;
           },
-          Day: ({ day, ...props }) => {
-            const date = day.date;
+          Day: (props) => {
+            const { day, modifiers: dayModifiers, ...restProps } = props as any;
+          
+            // ✅ day가 { date: Date } 이든 Date 이든 모두 대응
+            const date: Date = (day?.date ?? day) as Date;
+          
             const showBadge = shouldShowBadge(date);
             const count = getDateCount(date);
-
+          
+            // td에 적용할 props (role, className 등)
+            const { className: tdClassName, ...tdProps } = restProps;
+          
+            // button에 적용할 props
+            const buttonClassName = cn(
+              "h-9 w-9 p-0 font-normal aria-selected:opacity-100 relative",
+              props.className
+            );
+          
             return (
-              <td {...props}>
-                <div className="relative inline-flex items-center justify-center w-full h-full">
-                  <span>{date.getDate()}</span>
+              <td {...tdProps} role="gridcell" className={tdClassName}>
+                <button
+                  className={buttonClassName}
+                  onClick={restProps.onClick}
+                  onKeyDown={restProps.onKeyDown}
+                  disabled={!!dayModifiers?.disabled}
+
+                  aria-selected={restProps["aria-selected"]}
+                  aria-label={restProps["aria-label"]}
+                  data-day={restProps["data-day"]}
+                  data-month={restProps["data-month"]}
+                  data-selected={restProps["data-selected"]}
+                  data-disabled={restProps["data-disabled"]}
+                  data-hidden={restProps["data-hidden"]}
+                  data-outside={restProps["data-outside"]}
+                  data-focused={restProps["data-focused"]}
+                  data-today={restProps["data-today"]}
+                >
+                  {date.getDate()}
                   {showBadge && (
                     <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center leading-none z-10">
                       {count > 99 ? "99+" : count}
                     </span>
                   )}
-                </div>
+                </button>
               </td>
             );
           },
+          
         }}
         classNames={{
           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
