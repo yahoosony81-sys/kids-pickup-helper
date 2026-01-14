@@ -184,14 +184,16 @@ export function PickupCalendar({
             const count = getDateCount(date);
 
             return (
-              <div className="relative inline-block w-full h-full" {...props}>
-                <span>{date.getDate()}</span>
-                {showBadge && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center leading-none z-10">
-                    {count > 99 ? "99+" : count}
-                  </span>
-                )}
-              </div>
+              <td {...props}>
+                <div className="relative inline-flex items-center justify-center w-full h-full">
+                  <span>{date.getDate()}</span>
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center leading-none z-10">
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
+                </div>
+              </td>
             );
           },
         }}
