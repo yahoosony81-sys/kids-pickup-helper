@@ -1167,29 +1167,120 @@ WHERE pr.status = 'COMPLETED'
 ## Phase 9: 취소/노쇼 처리
 
 ### Task 9.1: 취소 UI
-- [ ] `app/(routes)/pickup-requests/[requestId]/cancel/page.tsx` 생성
-- [ ] 취소 사유 입력 폼 (`cancel_reason_code`: CANCEL/NO_SHOW, `cancel_reason_text`)
-- [ ] 취소 가능 조건 표시 (`status`가 `IN_PROGRESS` 이전)
+- [x] `app/(routes)/pickup-requests/[requestId]/cancel/page.tsx` 생성
+- [x] 취소 사유 입력 폼 (`cancel_reason_code`: CANCEL/NO_SHOW, `cancel_reason_text`)
+- [x] 취소 가능 조건 표시 (`status`가 `IN_PROGRESS` 이전)
 - **완료 기준**: 취소 폼 표시 및 제출 가능
 
 ### Task 9.2: 취소 Server Action
-- [ ] `actions/pickup-requests.ts`에 `cancelPickupRequest` 함수 추가
-- [ ] **서버 검증 필수**:
+- [x] `actions/pickup-requests.ts`에 `cancelPickupRequest` 함수 추가
+- [x] **서버 검증 필수**:
   - `status`가 `IN_PROGRESS` 이전인지 확인
-- [ ] `pickup_requests.status = 'CANCELLED'`, `cancel_reason_code`, `cancel_reason_text` 업데이트
-- [ ] 관련 초대가 있으면 `EXPIRED` 처리
-- [ ] 관련 `trip_participants` 삭제 (선택사항, 또는 상태만 업데이트)
+- [x] `pickup_requests.status = 'CANCELLED'`, `cancel_reason_code`, `cancel_reason_text` 업데이트
+- [x] 관련 초대가 있으면 `EXPIRED` 처리
+- [x] 관련 `trip_participants` 삭제 (선택사항, 또는 상태만 업데이트)
 - **완료 기준**: 취소 시 상태 업데이트, 관련 초대/참여자 처리
+
+---
+
+### Phase 9 Plan Mode Build 상세 작업 내역
+
+#### Zod 스키마 정의
+- [x] `lib/validations/pickup-request.ts`에 `cancelPickupRequestSchema` 추가
+  - [x] `cancel_reason_code`: `z.enum(['CANCEL', 'NO_SHOW'])`
+  - [x] `cancel_reason_text`: `z.string().optional()`
+  - [x] TypeScript 타입 정의 (`CancelPickupRequestFormData`)
+
+#### Server Actions 구현
+- [x] `actions/pickup-requests.ts`에 `cancelPickupRequest` 함수 추가
+  - [x] Clerk 인증 확인
+  - [x] Profile ID 조회 (요청자)
+  - [x] 픽업 요청 조회 및 소유자 확인
+  - [x] 상태 검증 (`status`가 `IN_PROGRESS` 이전인지 확인, `REQUESTED`, `MATCHED`만 허용)
+  - [x] 이미 `CANCELLED` 상태인지 확인
+  - [x] 트랜잭션 처리 (순차 실행):
+    1. [x] `pickup_requests` 업데이트: `status = 'CANCELLED'`, `cancel_reason_code`, `cancel_reason_text` 저장
+    2. [x] 관련 PENDING 초대 EXPIRED 처리: `invitations` 테이블에서 `pickup_request_id` 기준으로 `status = 'PENDING'`인 초대를 `EXPIRED`로 변경, `responded_at` 업데이트
+    3. [x] 관련 `trip_participants` 삭제: `trip_participants` 테이블에서 `pickup_request_id` 기준으로 레코드 삭제 (capacity 자동 복구)
+  - [x] 에러 처리 및 사용자 친화적 메시지
+  - [x] 상세한 로깅 (console.group, console.log)
+  - [x] 캐시 무효화 (revalidatePath)
+
+#### 취소 폼 컴포넌트 생성
+- [x] `components/pickup-requests/cancel-form.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] React Hook Form + Zod resolver 사용
+  - [x] 취소 사유 선택 (RadioGroup): `CANCEL` 또는 `NO_SHOW`
+  - [x] 상세 사유 입력 (textarea, 선택사항): `cancel_reason_text` 필드
+  - [x] shadcn/ui Form 컴포넌트 사용
+  - [x] `CancelPickupRequestButton` 컴포넌트 연결
+
+#### 취소 버튼 컴포넌트 생성
+- [x] `components/pickup-requests/cancel-pickup-request-button.tsx` 생성
+  - [x] Client Component로 구현
+  - [x] `cancelPickupRequest` Server Action 호출
+  - [x] 로딩 상태 관리
+  - [x] 에러 메시지 표시
+  - [x] 성공 시 목록 페이지로 리다이렉트 (`/pickup-requests`)
+
+#### 취소 페이지 생성
+- [x] `app/(routes)/pickup-requests/[requestId]/cancel/page.tsx` 생성
+  - [x] Server Component로 구현
+  - [x] `dynamic = 'force-dynamic'` 추가 (Clerk 사용)
+  - [x] `getPickupRequestById` Server Action으로 픽업 요청 조회
+  - [x] 요청자 소유 확인 및 에러 처리
+  - [x] 취소 가능 조건 검증 (`status`가 `IN_PROGRESS` 이전인지 확인)
+  - [x] 취소 불가능한 경우 안내 메시지 표시
+  - [x] 이미 취소된 경우 안내 메시지 표시
+  - [x] 취소 가능한 경우 취소 폼 표시 (`CancelForm` 컴포넌트)
+
+#### 네비게이션 연결
+- [x] `app/(routes)/pickup-requests/[requestId]/page.tsx` 수정
+  - [x] 취소 가능 조건 확인 (`status`가 `IN_PROGRESS` 이전)
+  - [x] 취소 가능한 경우 (REQUESTED, MATCHED) "취소하기" 버튼 추가 (`/pickup-requests/[requestId]/cancel` 링크)
+  - [x] 이미 `CANCELLED` 상태인 경우 배지 표시 (기존 코드에 이미 포함됨)
+- [x] `app/(routes)/my/past-requests/page.tsx` 수정
+  - [x] `CANCELLED` 상태인 요청에 "취소됨" 배지 표시
+  - [x] 취소 사유 표시 (`cancel_reason_code`와 `cancel_reason_text`)
+
+#### UI 컴포넌트 설치
+- [x] shadcn/ui `radio-group` 컴포넌트 설치 (`pnpm dlx shadcn@latest add radio-group`)
 
 ### Phase 9 실행 확인
 ```sql
 -- 취소 후 실행
-SELECT status, cancel_reason_code, cancel_reason_text 
+SELECT 
+  id,
+  status, 
+  cancel_reason_code, 
+  cancel_reason_text,
+  created_at,
+  updated_at
 FROM public.pickup_requests 
-WHERE id = 'request_xxx';  -- status = 'CANCELLED' 확인
+WHERE id = 'request_xxx';  
+-- 예상 결과: status = 'CANCELLED', cancel_reason_code와 cancel_reason_text 저장됨
+
+-- 관련 초대 EXPIRED 처리 확인
+SELECT 
+  id,
+  status,
+  pickup_request_id,
+  responded_at
+FROM public.invitations 
+WHERE pickup_request_id = 'request_xxx';
+-- 예상 결과: PENDING 초대가 모두 EXPIRED로 변경됨, responded_at 업데이트됨
+
+-- 관련 trip_participants 삭제 확인
+SELECT * 
+FROM public.trip_participants 
+WHERE pickup_request_id = 'request_xxx';
+-- 예상 결과: 레코드 없음 (삭제됨)
 ```
 - [ ] 쿼리 결과로 취소 상태 확인
 - [ ] 화면에서 취소된 요청 표시 확인
+- [ ] 취소 페이지에서 취소 사유 입력 및 제출 확인
+- [ ] 관련 초대 EXPIRED 처리 확인
+- [ ] 관련 trip_participants 삭제 확인
 
 ---
 
