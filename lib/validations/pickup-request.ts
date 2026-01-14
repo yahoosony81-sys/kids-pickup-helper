@@ -52,5 +52,17 @@ export const pickupRequestSchema = z.object({
 
 export type PickupRequestFormData = z.infer<typeof pickupRequestSchema>;
 
+/**
+ * 픽업 요청 취소 폼 스키마
+ */
+export const cancelPickupRequestSchema = z.object({
+  cancel_reason_code: z.enum(["CANCEL", "NO_SHOW"], {
+    required_error: "취소 사유를 선택해주세요.",
+  }),
+  cancel_reason_text: z.string().optional(),
+});
+
+export type CancelPickupRequestFormData = z.infer<typeof cancelPickupRequestSchema>;
+
 
 
