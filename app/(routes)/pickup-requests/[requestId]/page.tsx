@@ -218,14 +218,26 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
               </div>
             )}
 
-            {/* 취소 요청 버튼 (EXPIRED가 아닐 때만) */}
+            {/* 취소 버튼 (EXPIRED가 아닐 때만) */}
             {!isExpired && (
               <div className="pt-4 border-t">
-                <CancelRequestButton
-                  pickupRequestId={pickupRequest.id}
-                  status={pickupRequest.status}
-                  pickupTime={pickupRequest.pickup_time}
-                />
+                {/* 취소 가능한 경우 (REQUESTED, MATCHED) 취소 페이지로 이동 */}
+                {(pickupRequest.status === "REQUESTED" || pickupRequest.status === "MATCHED") && (
+                  <Button asChild variant="destructive" className="w-full">
+                    <Link href={`/pickup-requests/${pickupRequest.id}/cancel`}>
+                      <X className="mr-2 h-4 w-4" />
+                      취소하기
+                    </Link>
+                  </Button>
+                )}
+                {/* 기존 취소 요청 버튼 (CANCEL_REQUESTED 상태용) */}
+                {pickupRequest.status !== "REQUESTED" && pickupRequest.status !== "MATCHED" && (
+                  <CancelRequestButton
+                    pickupRequestId={pickupRequest.id}
+                    status={pickupRequest.status}
+                    pickupTime={pickupRequest.pickup_time}
+                  />
+                )}
               </div>
             )}
           </CardContent>

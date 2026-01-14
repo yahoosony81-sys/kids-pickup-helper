@@ -36,6 +36,11 @@ const statusConfig: Record<
     className:
       "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   },
+  CANCELLED: {
+    label: "취소됨",
+    className:
+      "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  },
   ARRIVED: {
     label: "도착",
     className:
@@ -65,9 +70,9 @@ export default async function PastRequestsPage() {
     );
   }
 
-  // 지난 픽업 요청 필터링 (EXPIRED, ARRIVED, COMPLETED)
+  // 지난 픽업 요청 필터링 (EXPIRED, CANCELLED, ARRIVED, COMPLETED)
   const pastRequests = (result.data || [])
-    .filter((req: any) => ["EXPIRED", "ARRIVED", "COMPLETED"].includes(req.status))
+    .filter((req: any) => ["EXPIRED", "CANCELLED", "ARRIVED", "COMPLETED"].includes(req.status))
     .sort(
       (a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -149,6 +154,19 @@ export default async function PastRequestsPage() {
                         </p>
                       </div>
                     </div>
+                    {/* 취소 사유 표시 (CANCELLED 상태인 경우) */}
+                    {request.status === "CANCELLED" && request.cancel_reason_code && (
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          취소 사유: {request.cancel_reason_code === "CANCEL" ? "일반 취소" : "노쇼"}
+                        </p>
+                        {request.cancel_reason_text && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {request.cancel_reason_text}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4 pt-4 border-t">
                     <Button asChild variant="outline" className="w-full">
