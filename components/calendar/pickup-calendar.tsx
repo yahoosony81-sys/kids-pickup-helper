@@ -180,14 +180,20 @@ export function PickupCalendar({
               props.className
             );
           
+            // 날짜 클릭 핸들러 (비활성화된 날짜는 클릭 무시)
+            const handleButtonClick = () => {
+              if (!dayModifiers?.disabled) {
+                handleDateClick(date);
+              }
+            };
+          
             return (
               <td {...tdProps} role="gridcell" className={tdClassName}>
                 <button
                   className={buttonClassName}
-                  onClick={restProps.onClick}
+                  onClick={handleButtonClick}
                   onKeyDown={restProps.onKeyDown}
                   disabled={!!dayModifiers?.disabled}
-
                   aria-selected={restProps["aria-selected"]}
                   aria-label={restProps["aria-label"]}
                   data-day={restProps["data-day"]}
