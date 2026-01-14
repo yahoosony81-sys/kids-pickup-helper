@@ -4,7 +4,8 @@
  *
  * 주요 기능:
  * 1. "도착 완료" 메시지 표시
- * 2. CSS 애니메이션: 3회 깜빡임 후 정지
+ * 2. 활성화/비활성화 상태에 따른 스타일 변경
+ * 3. 활성화 시 CSS 애니메이션: 3회 깜빡임 후 정지
  *
  * @dependencies
  * - Tailwind CSS (커스텀 애니메이션)
@@ -14,12 +15,17 @@
 
 import { useEffect, useState } from "react";
 
-export function ArrivedBox() {
+interface ArrivedBoxProps {
+  isActive?: boolean;
+}
+
+export function ArrivedBox({ isActive = true }: ArrivedBoxProps) {
   const [isBlinking, setIsBlinking] = useState(true);
   const [blinkCount, setBlinkCount] = useState(0);
 
   useEffect(() => {
-    if (blinkCount >= 3) {
+    // 활성화 상태일 때만 깜빡임 애니메이션 작동
+    if (!isActive || blinkCount >= 3) {
       setIsBlinking(false);
       return;
     }
@@ -35,15 +41,25 @@ export function ArrivedBox() {
     }, 600); // 0.6초 간격으로 깜빡임
 
     return () => clearInterval(interval);
-  }, [blinkCount]);
+  }, [blinkCount, isActive]);
 
   return (
     <div
-      className={`p-4 bg-green-50 dark:bg-green-950 border-2 border-green-300 dark:border-green-700 rounded-lg ${
-        isBlinking ? "animate-pulse" : ""
+      className={`p-4 rounded-lg border-2 transition-all ${
+        isActive
+          ? `bg-green-100 dark:bg-green-950 border-green-400 dark:border-green-700 opacity-100 ${
+              isBlinking ? "animate-pulse" : ""
+            }`
+          : "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 opacity-50"
       }`}
     >
-      <p className="text-center font-semibold text-green-800 dark:text-green-200">
+      <p
+        className={`text-center font-semibold ${
+          isActive
+            ? "text-green-800 dark:text-green-200"
+            : "text-green-600 dark:text-green-400"
+        }`}
+      >
         도착 완료
       </p>
     </div>

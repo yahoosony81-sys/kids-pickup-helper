@@ -26,7 +26,6 @@ import { getTripReviews } from "@/actions/trip-reviews";
 import { getTripInvitations } from "@/actions/invitations";
 import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
 import { StartTripButton } from "@/components/trips/start-trip-button";
-import { PickupCompleteButton } from "@/components/trips/pickup-complete-button";
 import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
 import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
 import { ApproveCancelButton } from "@/components/pickup-requests/approve-cancel-button";
@@ -274,6 +273,32 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               <div className="space-y-4">
                 {participants.map((participant: any, index: number) => {
                   const pickupRequest = participant.pickup_request as any;
+                  
+                  // pickupRequest가 없는 경우에도 참여자 정보 표시
+                  if (!pickupRequest) {
+                    return (
+                      <Card key={participant.id} className="border-l-4 border-l-gray-500">
+                        <CardContent className="pt-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-lg">
+                                  #{index + 1}
+                                </span>
+                                <span className="px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
+                                  정보 없음
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              픽업 요청 정보를 불러올 수 없습니다.
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                  
                   return (
                     <Card key={participant.id} className="border-l-4 border-l-blue-500">
                       <CardContent className="pt-4">
@@ -283,70 +308,79 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                               <span className="font-semibold text-lg">
                                 #{index + 1}
                               </span>
-                              {pickupRequest && (
-                                <span
-                                  className={`px-2 py-1 rounded-md text-xs font-medium ${
-                                    pickupRequest.status === "CANCEL_REQUESTED"
-                                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                                      : pickupRequest.status === "IN_PROGRESS"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : pickupRequest.status === "COMPLETED"
-                                          ? "bg-gray-100 text-gray-800"
-                                          : pickupRequest.status === "CANCELLED"
-                                            ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                                            : "bg-blue-100 text-blue-800"
-                                  }`}
-                                >
-                                  {pickupRequest.status === "CANCEL_REQUESTED"
-                                    ? "취소 요청됨"
+                              <span
+                                className={`px-2 py-1 rounded-md text-xs font-medium ${
+                                  pickupRequest.status === "CANCEL_REQUESTED"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
                                     : pickupRequest.status === "IN_PROGRESS"
-                                      ? "진행중"
+                                      ? "bg-yellow-100 text-yellow-800"
                                       : pickupRequest.status === "COMPLETED"
-                                        ? "완료"
+                                        ? "bg-gray-100 text-gray-800"
                                         : pickupRequest.status === "CANCELLED"
-                                          ? "취소됨"
-                                          : "매칭됨"}
-                                </span>
-                              )}
+                                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                          : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {pickupRequest.status === "CANCEL_REQUESTED"
+                                  ? "취소 요청됨"
+                                  : pickupRequest.status === "IN_PROGRESS"
+                                    ? "진행중"
+                                    : pickupRequest.status === "COMPLETED"
+                                      ? "완료"
+                                      : pickupRequest.status === "CANCELLED"
+                                        ? "취소됨"
+                                        : "매칭됨"}
+                              </span>
                             </div>
                           </div>
 
-                          {pickupRequest && (
-                            <>
-                              <div className="flex items-start gap-2 text-sm">
-                                <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                <div>
-                                  <span className="text-muted-foreground">픽업 시간:</span>
-                                  <span className="font-medium ml-2">
-                                    {formatDateTime(pickupRequest.pickup_time)}
-                                  </span>
-                                </div>
-                              </div>
+                          <div className="flex items-start gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
+                            <div>
+                              <span className="text-muted-foreground">픽업 시간:</span>
+                              <span className="font-medium ml-2">
+                                {formatDateTime(pickupRequest.pickup_time)}
+                              </span>
+                            </div>
+                          </div>
 
-                              <div className="flex items-start gap-2 text-sm">
-                                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                <div className="flex-1">
-                                  <div>
-                                    <span className="text-muted-foreground">출발지:</span>
-                                    <span className="font-medium ml-2">
-                                      {pickupRequest.origin_text}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1">
-                                    <span className="text-muted-foreground">목적지:</span>
-                                    <span className="font-medium ml-2">
-                                      {pickupRequest.destination_text}
-                                    </span>
-                                  </div>
-                                </div>
+                          {pickupRequest.started_at && (
+                            <div className="flex items-start gap-2 text-sm">
+                              <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
+                              <div>
+                                <span className="text-muted-foreground">출발 시간:</span>
+                                <span className="font-medium ml-2">
+                                  {formatDateTime(pickupRequest.started_at)}
+                                </span>
                               </div>
-                            </>
+                            </div>
                           )}
 
+                          <div className="flex items-start gap-2 text-sm">
+                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                            <div className="flex-1">
+                              <div>
+                                <span className="text-muted-foreground">출발지:</span>
+                                <span className="font-medium ml-2">
+                                  {pickupRequest.origin_text}
+                                </span>
+                              </div>
+                              <div className="mt-1">
+                                <span className="text-muted-foreground">목적지:</span>
+                                <span className="font-medium ml-2">
+                                  {pickupRequest.destination_text}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 취소 승인 버튼 (CANCEL_REQUESTED 상태일 때만) */}
-                          {pickupRequest && pickupRequest.status === "CANCEL_REQUESTED" && (
+                          {pickupRequest.status === "CANCEL_REQUESTED" && (
                             <div className="mt-4 pt-4 border-t">
-                              <ApproveCancelButton pickupRequestId={pickupRequest.id} />
+                              <ApproveCancelButton 
+                                pickupRequestId={pickupRequest.id}
+                                pickupTime={pickupRequest.pickup_time}
+                              />
                             </div>
                           )}
 
@@ -380,17 +414,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                               </div>
                             );
                           })()}
-
-                          {/* 픽업 완료 버튼 (LOCK된 경우만, 제공자만, progress_stage = 'STARTED'일 때만) */}
-                          {trip.is_locked && pickupRequest && (
-                            <div className="mt-4 pt-4 border-t">
-                              <PickupCompleteButton
-                                tripId={tripId}
-                                pickupRequestId={pickupRequest.id}
-                                progressStage={pickupRequest.progress_stage}
-                              />
-                            </div>
-                          )}
 
                           {/* 도착 사진 업로드 (LOCK된 경우만, 제공자만) */}
                           {trip.is_locked && (

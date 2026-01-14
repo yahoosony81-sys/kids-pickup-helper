@@ -29,7 +29,9 @@ import { revalidatePath } from "next/cache";
  *
  * 상태별 취소 처리:
  * - REQUESTED (매칭 전): 즉시 자동 승인 (CANCELLED 상태로 변경, 관련 초대 EXPIRED 처리)
- * - MATCHED (매칭 후): 출발 1시간 전까지 취소 요청 가능, 제공자 승인 필요 (CANCEL_REQUESTED 상태)
+ * - MATCHED (매칭 후): 시간에 따라 분기 처리
+ *   - 출발 1시간 이전: 즉시 자동 취소 (CANCELLED 상태로 변경)
+ *   - 출발 1시간 이내: 제공자 승인 필요 (CANCEL_REQUESTED 상태)
  *
  * 서버에서 시간, 상태, 권한을 모두 재검증합니다.
  *
@@ -245,116 +247,191 @@ export async function requestCancel(pickupRequestId: string) {
       };
     }
 
-    // MATCHED 상태: 제공자 승인 필요 (기존 로직)
-    console.log("🔄 매칭 후 취소 처리 (제공자 승인 필요)...");
+    // MATCHED 상태: 시간에 따라 자동 취소 또는 제공자 승인 필요
+    console.log("🔄 매칭 후 취소 처리...");
 
-    // 7. 시간 검증 (출발 1시간 전까지만 취소 요청 가능)
+    // 7. 시간 계산 및 분기 처리
     const pickupTime = new Date(pickupRequest.pickup_time);
     const now = new Date();
     const oneHourInMs = 60 * 60 * 1000; // 1시간 (밀리초)
     const timeUntilPickup = pickupTime.getTime() - now.getTime();
+    const isWithinOneHour = timeUntilPickup <= oneHourInMs;
 
-    if (timeUntilPickup <= oneHourInMs) {
-      console.error("❌ 취소 요청 시간 제한 위반:", {
-        pickupTime: pickupTime.toISOString(),
-        now: now.toISOString(),
-        timeUntilPickup: timeUntilPickup,
-        oneHourInMs,
-      });
-      console.groupEnd();
-      return {
-        success: false,
-        error: "출발 1시간 전까지만 취소 요청을 할 수 있습니다.",
-      };
-    }
-    console.log("✅ 시간 검증 완료:", {
+    console.log("⏰ 시간 계산:", {
       pickupTime: pickupTime.toISOString(),
+      now: now.toISOString(),
       timeUntilPickup: `${Math.floor(timeUntilPickup / 60000)}분`,
+      isWithinOneHour,
     });
 
-    // 8. 픽업 요청 상태를 CANCEL_REQUESTED로 변경
-    console.log("🔄 픽업 요청 상태 업데이트 중...");
-    const { error: updateError } = await supabase
-      .from("pickup_requests")
-      .update({
-        status: "CANCEL_REQUESTED",
-        cancel_requested_at: new Date().toISOString(),
-      })
-      .eq("id", pickupRequestId)
-      .eq("requester_profile_id", profile.id)
-      .eq("status", "MATCHED");
+    if (isWithinOneHour) {
+      // 출발 1시간 이내: 제공자 승인 필요 (CANCEL_REQUESTED)
+      console.log("🔄 출발 1시간 이내: 제공자 승인 필요");
+      
+      const { error: updateError } = await supabase
+        .from("pickup_requests")
+        .update({
+          status: "CANCEL_REQUESTED",
+          cancel_requested_at: new Date().toISOString(),
+        })
+        .eq("id", pickupRequestId)
+        .eq("requester_profile_id", profile.id)
+        .eq("status", "MATCHED");
 
-    if (updateError) {
-      console.error("❌ 픽업 요청 상태 업데이트 실패:", updateError);
-      console.groupEnd();
-      return {
-        success: false,
-        error: "취소 요청 처리에 실패했습니다. 다시 시도해주세요.",
-      };
-    }
-    console.log("✅ 픽업 요청 상태 업데이트 완료 (CANCEL_REQUESTED)");
-
-    // 9. 제공자 찾기 (trip_participants → trips)
-    console.log("🔍 제공자 찾는 중...");
-    const { data: participant, error: participantError } = await supabase
-      .from("trip_participants")
-      .select("trip_id, trips!inner(provider_profile_id)")
-      .eq("pickup_request_id", pickupRequestId)
-      .single();
-
-    let providerProfileId: string | null = null;
-
-    if (participantError) {
-      console.error("❌ trip_participants 조회 실패:", participantError);
-      console.groupEnd();
-      return {
-        success: false,
-        error: "제공자 정보를 찾을 수 없습니다.",
-      };
-    } else if (participant && participant.trips) {
-      providerProfileId = (participant.trips as any).provider_profile_id;
-      console.log("✅ 제공자 찾기 완료:", { providerProfileId });
-    }
-
-    // 10. 푸시 알림 이벤트 생성 (제공자에게)
-    if (providerProfileId) {
-      console.log("📨 푸시 알림 이벤트 생성 중...");
-      const { error: notificationError } = await supabase
-        .from("push_notifications")
-        .insert({
-          user_profile_id: providerProfileId,
-          type: "cancel_requested",
-          payload_json: {
-            pickup_request_id: pickupRequestId,
-            requester_profile_id: profile.id,
-            message: "요청자가 취소를 요청했습니다. 승인해주세요.",
-          },
-        });
-
-      if (notificationError) {
-        console.error("⚠️ 푸시 알림 이벤트 생성 실패 (계속 진행):", notificationError);
-      } else {
-        console.log("✅ 푸시 알림 이벤트 생성 완료");
+      if (updateError) {
+        console.error("❌ 픽업 요청 상태 업데이트 실패:", updateError);
+        console.groupEnd();
+        return {
+          success: false,
+          error: "취소 요청 처리에 실패했습니다. 다시 시도해주세요.",
+        };
       }
-    } else {
-      console.error("❌ 제공자 정보를 찾을 수 없음");
+      console.log("✅ 픽업 요청 상태 업데이트 완료 (CANCEL_REQUESTED)");
+
+      // 제공자 찾기 (trip_participants → trips)
+      console.log("🔍 제공자 찾는 중...");
+      const { data: participant, error: participantError } = await supabase
+        .from("trip_participants")
+        .select("trip_id, trips!inner(provider_profile_id)")
+        .eq("pickup_request_id", pickupRequestId)
+        .single();
+
+      let providerProfileId: string | null = null;
+
+      if (participantError) {
+        console.error("❌ trip_participants 조회 실패:", participantError);
+        console.groupEnd();
+        return {
+          success: false,
+          error: "제공자 정보를 찾을 수 없습니다.",
+        };
+      } else if (participant && participant.trips) {
+        providerProfileId = (participant.trips as any).provider_profile_id;
+        console.log("✅ 제공자 찾기 완료:", { providerProfileId });
+      }
+
+      // 푸시 알림 이벤트 생성 (제공자에게)
+      if (providerProfileId) {
+        console.log("📨 푸시 알림 이벤트 생성 중...");
+        const { error: notificationError } = await supabase
+          .from("push_notifications")
+          .insert({
+            user_profile_id: providerProfileId,
+            type: "cancel_requested",
+            payload_json: {
+              pickup_request_id: pickupRequestId,
+              requester_profile_id: profile.id,
+              message: "요청자가 취소를 요청했습니다. 승인해주세요.",
+            },
+          });
+
+        if (notificationError) {
+          console.error("⚠️ 푸시 알림 이벤트 생성 실패 (계속 진행):", notificationError);
+        } else {
+          console.log("✅ 푸시 알림 이벤트 생성 완료");
+        }
+      } else {
+        console.error("❌ 제공자 정보를 찾을 수 없음");
+        console.groupEnd();
+        return {
+          success: false,
+          error: "제공자 정보를 찾을 수 없습니다.",
+        };
+      }
+
+      console.log("✅ 취소 요청 완료");
       console.groupEnd();
+
+      // 캐시 무효화
+      revalidatePath(`/pickup-requests/${pickupRequestId}`);
+      revalidatePath("/pickup-requests");
+      // Trip 상세 페이지도 무효화 (제공자가 취소 요청을 볼 수 있도록)
+      if (participant && participant.trip_id) {
+        revalidatePath(`/trips/${participant.trip_id}`);
+        revalidatePath("/trips");
+      }
+
       return {
-        success: false,
-        error: "제공자 정보를 찾을 수 없습니다.",
+        success: true,
+      };
+    } else {
+      // 출발 1시간 이전: 자동 취소 (CANCELLED)
+      console.log("🔄 출발 1시간 이전: 자동 취소");
+      
+      const { data: updateResult, error: updateError } = await supabase
+        .from("pickup_requests")
+        .update({
+          status: "CANCELLED",
+          cancel_requested_at: new Date().toISOString(),
+          cancel_approved_at: new Date().toISOString(),
+          cancel_approved_by: profile.id,
+        })
+        .eq("id", pickupRequestId)
+        .eq("requester_profile_id", profile.id)
+        .eq("status", "MATCHED")
+        .select("id, status");
+
+      if (updateError) {
+        console.error("❌ 픽업 요청 상태 업데이트 실패:", updateError);
+        console.groupEnd();
+        return {
+          success: false,
+          error: "취소 처리에 실패했습니다. 다시 시도해주세요.",
+        };
+      }
+
+      if (!updateResult || updateResult.length === 0) {
+        console.error("❌ 업데이트된 행이 없음");
+        console.groupEnd();
+        return {
+          success: false,
+          error: "취소 처리에 실패했습니다. 요청을 찾을 수 없거나 권한이 없습니다.",
+        };
+      }
+
+      console.log("✅ 픽업 요청 상태 업데이트 완료 (CANCELLED)");
+
+      // trip_participants 삭제 (capacity 자동 복구)
+      console.log("2️⃣ trip_participants 삭제 중 (capacity 복구)...");
+      const { error: deleteParticipantError } = await supabase
+        .from("trip_participants")
+        .delete()
+        .eq("pickup_request_id", pickupRequestId);
+
+      if (deleteParticipantError) {
+        console.error("❌ trip_participants 삭제 실패:", deleteParticipantError);
+        // 계속 진행
+      } else {
+        console.log("✅ trip_participants 삭제 완료 (capacity 자동 복구)");
+      }
+
+      // 관련 invitations 정리 (ACCEPTED 상태인 경우 EXPIRED 처리)
+      console.log("3️⃣ 관련 invitations 정리 중...");
+      const { error: updateInvitationError } = await supabase
+        .from("invitations")
+        .update({
+          status: "EXPIRED",
+        })
+        .eq("pickup_request_id", pickupRequestId)
+        .eq("status", "ACCEPTED");
+
+      if (updateInvitationError) {
+        console.warn("⚠️ invitations 업데이트 실패 (계속 진행):", updateInvitationError);
+      } else {
+        console.log("✅ invitations 정리 완료");
+      }
+
+      console.log("✅ 출발 1시간 이전 자동 취소 완료");
+      console.groupEnd();
+
+      // 캐시 무효화
+      revalidatePath(`/pickup-requests/${pickupRequestId}`);
+      revalidatePath("/pickup-requests");
+
+      return {
+        success: true,
       };
     }
-
-    console.log("✅ 취소 요청 완료");
-    console.groupEnd();
-
-    // 10. 캐시 무효화
-    revalidatePath(`/pickup-requests/${pickupRequestId}`);
-    revalidatePath("/pickup-requests");
-
-    return {
-      success: true,
-    };
   } catch (error) {
     console.error("❌ requestCancel 에러:", error);
     return {
@@ -372,6 +449,10 @@ export async function requestCancel(pickupRequestId: string) {
  * 2. trip_participants 삭제 (capacity 자동 복구)
  * 3. 관련 invitations 정리
  * 4. 요청자에게 푸시 알림
+ *
+ * 시간 제한 로직:
+ * - 출발 1시간 전까지: 자동 승인 (확인만 누르면 즉시 취소)
+ * - 1시간 이내: 수동 승인 필요 (승인 버튼 클릭 필요)
  *
  * @param pickupRequestId - 픽업 요청 ID
  * @returns 성공/실패 결과 및 에러 메시지
@@ -498,6 +579,20 @@ export async function approveCancel(pickupRequestId: string) {
     console.log("✅ 제공자 확인 완료:", {
       tripId: participant.trip_id,
       providerId: trip.provider_profile_id,
+    });
+
+    // 5-1. 시간 제한 로직 확인 (출발 1시간 전까지는 자동 승인, 1시간 이내는 수동 승인 필요)
+    const pickupTime = new Date(pickupRequest.pickup_time);
+    const now = new Date();
+    const oneHourInMs = 60 * 60 * 1000; // 1시간 (밀리초)
+    const timeUntilPickup = pickupTime.getTime() - now.getTime();
+    const isWithinOneHour = timeUntilPickup <= oneHourInMs;
+
+    console.log("⏰ 시간 제한 확인:", {
+      pickupTime: pickupTime.toISOString(),
+      now: now.toISOString(),
+      timeUntilPickup: `${Math.floor(timeUntilPickup / 60000)}분`,
+      isWithinOneHour,
     });
 
     // 6. 트랜잭션 처리 (순차 실행)

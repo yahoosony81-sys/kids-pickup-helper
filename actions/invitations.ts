@@ -211,23 +211,49 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
 
     // 5-1. 출발 30분 전 마감 검증
     if (trip.scheduled_start_at) {
+      // 중요: new Date()는 내부적으로 UTC milliseconds를 사용
+      // DB의 timestamptz도 UTC로 저장되어 있으므로 둘 다 동일한 기준으로 비교
       const now = new Date();
       const scheduledStart = new Date(trip.scheduled_start_at);
-      const lockTime = new Date(scheduledStart.getTime() - 30 * 60 * 1000); // 30분 전
+      const timeUntilStart = scheduledStart.getTime() - now.getTime(); // 출발까지 남은 시간 (밀리초)
+      const thirtyMinutesInMs = 30 * 60 * 1000; // 30분 (밀리초)
 
-      if (now >= lockTime) {
+      // 로깅용: 한국 시간으로 변환하여 표시 (Intl API 사용)
+      const kstFormatter = new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      const nowKSTStr = kstFormatter.format(now);
+      const scheduledStartKSTStr = kstFormatter.format(scheduledStart);
+      const minutesRemaining = Math.floor(timeUntilStart / (60 * 1000));
+
+      if (timeUntilStart <= thirtyMinutesInMs) {
         console.error("❌ 출발 30분 전 마감:", {
-          now: now.toISOString(),
-          lockTime: lockTime.toISOString(),
-          scheduledStart: scheduledStart.toISOString(),
+          nowUTC: now.toISOString(),
+          nowKST: nowKSTStr,
+          scheduledStartUTC: scheduledStart.toISOString(),
+          scheduledStartKST: scheduledStartKSTStr,
+          timeUntilStart: `${minutesRemaining}분`,
         });
         console.groupEnd();
         return {
           success: false,
-          error: "출발 30분 전에는 초대를 보낼 수 없습니다.",
+          error: `출발 30분 전부터는 초대를 보낼 수 없습니다. (현재 출발까지 ${minutesRemaining}분 남음)`,
         };
       }
-      console.log("✅ 출발 30분 전 마감 검증 완료");
+      console.log("✅ 출발 30분 전 마감 검증 완료:", {
+        nowUTC: now.toISOString(),
+        nowKST: nowKSTStr,
+        scheduledStartUTC: scheduledStart.toISOString(),
+        scheduledStartKST: scheduledStartKSTStr,
+        timeUntilStart: `${minutesRemaining}분`,
+      });
     }
 
     // 6. 픽업 요청 조회 및 요청자 Profile ID 확인
@@ -526,10 +552,7 @@ export async function getTripInvitations(tripId: string, status?: string) {
     }
     console.log("✅ Trip 소유자 확인 완료");
 
-    // 5. 시간 규칙 정리 (출발 1시간 전 PENDING EXPIRED 처리)
-    await enforceTimeRules(tripId, supabase);
-
-    // 6. 초대 목록 조회 (픽업 요청 정보 JOIN)
+    // 5. 초대 목록 조회 (픽업 요청 정보 JOIN)
     let query = supabase
       .from("invitations")
       .select(
@@ -1176,10 +1199,7 @@ export async function acceptInvitation(invitationId: string) {
       }
     }
 
-    // 3-3. 시간 규칙 정리 (출발 1시간 전 PENDING EXPIRED 처리)
-    await enforceTimeRules(invitation.trip_id, supabase);
-    
-    // 시간 규칙 정리 후 다시 초대 조회 (상태가 변경되었을 수 있음)
+    // 3-3. 초대 재조회 (최신 상태 확인)
     const { data: updatedInvitation, error: updatedInvitationError } = await supabase
       .from("invitations")
       .select(`
@@ -1212,14 +1232,18 @@ export async function acceptInvitation(invitationId: string) {
       };
     }
 
-    // 3-5. 초대가 EXPIRED로 변경되었으면 실패 처리
+    // 3-5. 초대가 EXPIRED로 변경되었으면 실패 처리 (expires_at 기준 만료만 확인)
     if (updatedInvitation.status === "EXPIRED") {
-      console.error("❌ 초대가 만료됨 (출발 1시간 전 규칙 적용)");
-      console.groupEnd();
-      return {
-        success: false,
-        error: "이 초대는 만료되었습니다.",
-      };
+      const expiresAt = new Date(updatedInvitation.expires_at);
+      const now = new Date();
+      if (expiresAt < now) {
+        console.error("❌ 초대가 만료됨 (expires_at 기준)");
+        console.groupEnd();
+        return {
+          success: false,
+          error: "이 초대는 만료되었습니다.",
+        };
+      }
     }
 
     invitation = updatedInvitation;

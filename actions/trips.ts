@@ -683,7 +683,8 @@ export async function getTripParticipants(tripId: string) {
           destination_lat,
           destination_lng,
           status,
-          progress_stage
+          progress_stage,
+          started_at
         )
       `
       )
@@ -937,7 +938,26 @@ export async function startTrip(tripId: string) {
     const pickupRequestIds = participants?.map((p) => p.pickup_request_id) || [];
     const now = new Date().toISOString();
     
+    // 디버깅: 업데이트 대상 정보 로깅
+    console.log("📋 업데이트 대상 정보:", {
+      pickupRequestIds,
+      count: pickupRequestIds.length,
+      participantCount: participants?.length || 0,
+    });
+
     if (pickupRequestIds.length > 0) {
+      // 업데이트 전 현재 상태 확인
+      const { data: currentRequests, error: checkError } = await supabase
+        .from("pickup_requests")
+        .select("id, status, progress_stage, started_at")
+        .in("id", pickupRequestIds);
+
+      if (checkError) {
+        console.error("❌ 업데이트 전 요청 상태 확인 실패:", checkError);
+      } else {
+        console.log("📊 업데이트 전 요청 상태:", currentRequests);
+      }
+
       const { error: updateRequestsError } = await supabase
         .from("pickup_requests")
         .update({
@@ -948,12 +968,87 @@ export async function startTrip(tripId: string) {
         .in("id", pickupRequestIds);
 
       if (updateRequestsError) {
-        console.error("❌ 픽업 요청 상태 업데이트 실패:", updateRequestsError);
-        console.groupEnd();
-        console.groupEnd();
+        // 상세한 에러 정보 로깅
+        console.error("❌ 픽업 요청 상태 업데이트 실패:", {
+          error: updateRequestsError,
+          code: updateRequestsError.code,
+          message: updateRequestsError.message,
+          details: updateRequestsError.details,
+          hint: updateRequestsError.hint,
+          pickupRequestIds,
+          updateData: {
+            status: "IN_PROGRESS",
+            progress_stage: "STARTED",
+            started_at: now,
+          },
+        });
+
+        // 트랜잭션 롤백: Trip 업데이트를 원래 상태로 되돌림
+        console.log("🔄 트랜잭션 롤백: Trip 상태 복구 중...");
+        const { error: rollbackError } = await supabase
+          .from("trips")
+          .update({
+            is_locked: false,
+            status: trip.status, // 원래 상태로 복구
+            start_at: null,
+          })
+          .eq("id", tripId);
+
+        if (rollbackError) {
+          console.error("❌ 트랜잭션 롤백 실패:", rollbackError);
+          console.error("⚠️ 경고: Trip은 업데이트되었지만 픽업 요청 업데이트에 실패했습니다. 데이터 불일치 가능성 있음.");
+        } else {
+          console.log("✅ 트랜잭션 롤백 완료: Trip 상태 복구됨");
+        }
+
+        // 에러 타입별 구체적인 메시지 제공
+        let errorMessage = "픽업 요청 상태 업데이트에 실패했습니다.";
+        let migrationHint = "";
+
+        // 컬럼 없음 에러 확인
+        if (
+          updateRequestsError.message?.includes("column") ||
+          updateRequestsError.message?.includes("does not exist") ||
+          updateRequestsError.code === "42703"
+        ) {
+          errorMessage = "데이터베이스 스키마가 최신이 아닙니다. 마이그레이션을 적용해주세요.";
+          migrationHint =
+            "필요한 마이그레이션: 20250131120000_add_progress_stage.sql (progress_stage, started_at 컬럼 추가)";
+        }
+        // 권한 에러 확인
+        else if (
+          updateRequestsError.message?.includes("permission") ||
+          updateRequestsError.message?.includes("policy") ||
+          updateRequestsError.code === "42501"
+        ) {
+          errorMessage = "데이터베이스 권한이 없습니다. 관리자에게 문의해주세요.";
+        }
+        // 데이터 타입/제약 조건 에러
+        else if (
+          updateRequestsError.message?.includes("check constraint") ||
+          updateRequestsError.message?.includes("invalid input") ||
+          updateRequestsError.code === "23514"
+        ) {
+          errorMessage = "데이터 유효성 검사에 실패했습니다. 요청 상태를 확인해주세요.";
+        }
+        // 기타 에러는 원본 메시지 포함
+        else if (updateRequestsError.message) {
+          errorMessage = `픽업 요청 상태 업데이트에 실패했습니다: ${updateRequestsError.message}`;
+        }
+
+        console.error("❌ 에러 상세:", {
+          errorMessage,
+          migrationHint,
+          originalError: updateRequestsError,
+          rollbackSuccess: !rollbackError,
+        });
+
+        console.groupEnd(); // 트랜잭션 처리 종료
+        console.groupEnd(); // 전체 함수 종료
+
         return {
           success: false,
-          error: "픽업 요청 상태 업데이트에 실패했습니다. 다시 시도해주세요.",
+          error: migrationHint ? `${errorMessage}\n${migrationHint}` : errorMessage,
         };
       }
       console.log("✅ 픽업 요청 상태 업데이트 완료:", { count: pickupRequestIds.length });

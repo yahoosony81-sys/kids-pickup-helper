@@ -9,6 +9,12 @@
  * 4. 로딩 상태 관리
  * 5. 에러 메시지 표시
  *
+ * 취소 로직:
+ * - REQUESTED 상태: 즉시 자동 취소
+ * - MATCHED 상태: 시간에 따라 분기
+ *   - 출발 1시간 이전: 즉시 자동 취소
+ *   - 출발 1시간 이내: 제공자 승인 필요
+ *
  * @dependencies
  * - @/actions/pickup-cancel: requestCancel Server Action
  * - @/components/ui/button: 버튼 컴포넌트
@@ -60,16 +66,13 @@ export function CancelRequestButton({
       return true;
     }
 
-    // MATCHED 상태: 시간 검증 (출발 1시간 전까지만)
-    const pickup = new Date(pickupTime);
-    const now = new Date();
-    const oneHourInMs = 60 * 60 * 1000;
-    const timeUntilPickup = pickup.getTime() - now.getTime();
-
-    return timeUntilPickup > oneHourInMs;
+    // MATCHED 상태: 시간 제한 없이 항상 취소 요청 가능
+    // 출발 1시간 이전: 자동 취소
+    // 출발 1시간 이내: 제공자 승인 필요
+    return true;
   })();
 
-  // 시간 제한 안내 메시지 (MATCHED 상태일 때만)
+  // 시간에 따른 안내 메시지 (MATCHED 상태일 때만)
   const timeMessage = (() => {
     if (status !== "MATCHED") {
       return null;
@@ -80,14 +83,16 @@ export function CancelRequestButton({
     const oneHourInMs = 60 * 60 * 1000;
     const timeUntilPickup = pickup.getTime() - now.getTime();
 
+    if (timeUntilPickup <= 0) {
+      return "이미 출발 시간이 지났습니다.";
+    }
+
     if (timeUntilPickup <= oneHourInMs) {
       const minutesUntilPickup = Math.floor(timeUntilPickup / 60000);
-      if (minutesUntilPickup <= 0) {
-        return "이미 출발 시간이 지났습니다.";
-      }
-      return `출발 ${Math.floor(minutesUntilPickup)}분 전입니다. 취소 요청은 출발 1시간 전까지만 가능합니다.`;
+      return `출발 ${minutesUntilPickup}분 전입니다. 취소 요청 시 제공자의 승인이 필요합니다.`;
     }
-    return null;
+
+    return "출발 1시간 이전이므로 취소 버튼만 누르면 즉시 취소 처리됩니다.";
   })();
 
   const handleCancelRequest = async () => {
@@ -158,18 +163,26 @@ export function CancelRequestButton({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>취소 확인</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="whitespace-pre-line">
               정말로 이 픽업 요청을 취소하시겠습니까?
               <br />
               {status === "REQUESTED" ? (
                 <>
                   매칭 전 취소이므로 즉시 취소 처리됩니다.
                 </>
-              ) : (
-                <>
-                  취소 요청 후 제공자의 승인이 필요합니다.
-                </>
-              )}
+              ) : (() => {
+                const pickup = new Date(pickupTime);
+                const now = new Date();
+                const oneHourInMs = 60 * 60 * 1000;
+                const timeUntilPickup = pickup.getTime() - now.getTime();
+                const isWithinOneHour = timeUntilPickup <= oneHourInMs;
+
+                if (isWithinOneHour) {
+                  return "출발 1시간 이내이므로 취소 요청 후 제공자의 승인이 필요합니다.";
+                } else {
+                  return "출발 1시간 이전이므로 취소 버튼만 누르면 즉시 취소 처리됩니다.";
+                }
+              })()}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -189,7 +202,15 @@ export function CancelRequestButton({
                 ? "처리 중..." 
                 : status === "REQUESTED" 
                   ? "예, 취소합니다" 
-                  : "예, 취소 요청합니다"}
+                  : (() => {
+                      const pickup = new Date(pickupTime);
+                      const now = new Date();
+                      const oneHourInMs = 60 * 60 * 1000;
+                      const timeUntilPickup = pickup.getTime() - now.getTime();
+                      const isWithinOneHour = timeUntilPickup <= oneHourInMs;
+
+                      return isWithinOneHour ? "예, 취소 요청합니다" : "예, 취소합니다";
+                    })()}
             </Button>
           </DialogFooter>
           {error && (

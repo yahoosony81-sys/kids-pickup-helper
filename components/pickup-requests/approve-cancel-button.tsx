@@ -7,6 +7,12 @@
  * 2. 확인 다이얼로그 표시
  * 3. 로딩 상태 관리
  * 4. 에러 메시지 표시
+ * 5. 시간에 따른 버튼 텍스트 변경 (출발 1시간 전까지는 "확인", 1시간 이내는 "취소 승인")
+ *
+ * 핵심 구현 로직:
+ * - 출발 시간 기준으로 시간 계산
+ * - 출발 1시간 전까지: "확인" 버튼 (자동 승인)
+ * - 1시간 이내: "취소 승인" 버튼 (수동 승인 필요)
  *
  * @dependencies
  * - @/actions/pickup-cancel: approveCancel Server Action
@@ -33,15 +39,32 @@ import { CheckCircle2 } from "lucide-react";
 
 interface ApproveCancelButtonProps {
   pickupRequestId: string;
+  pickupTime: string;
 }
 
 export function ApproveCancelButton({
   pickupRequestId,
+  pickupTime,
 }: ApproveCancelButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
+
+  // 시간 계산: 출발 1시간 전까지는 자동 승인, 1시간 이내는 수동 승인 필요
+  const pickup = new Date(pickupTime);
+  const now = new Date();
+  const oneHourInMs = 60 * 60 * 1000;
+  const timeUntilPickup = pickup.getTime() - now.getTime();
+  const isWithinOneHour = timeUntilPickup <= oneHourInMs;
+
+  // 버튼 텍스트 및 설명 결정
+  const buttonText = isWithinOneHour ? "취소 승인" : "확인";
+  const dialogTitle = isWithinOneHour ? "취소 승인 확인" : "취소 확인";
+  const dialogDescription = isWithinOneHour
+    ? "요청자의 취소 요청을 승인하시겠습니까?\n승인하면 이 요청은 취소되고, 수용 가능한 인원이 1명 복구됩니다."
+    : "요청자의 취소 요청을 확인하시겠습니까?\n출발 1시간 전이므로 확인만 누르면 즉시 취소 처리됩니다.";
+  const confirmButtonText = isWithinOneHour ? "예, 승인합니다" : "예, 확인합니다";
 
   const handleApproveCancel = async () => {
     setIsLoading(true);
@@ -72,16 +95,14 @@ export function ApproveCancelButton({
         <DialogTrigger asChild>
           <Button variant="default" className="w-full">
             <CheckCircle2 className="mr-2 h-4 w-4" />
-            취소 승인
+            {buttonText}
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>취소 승인 확인</DialogTitle>
-            <DialogDescription>
-              요청자의 취소 요청을 승인하시겠습니까?
-              <br />
-              승인하면 이 요청은 취소되고, 수용 가능한 인원이 1명 복구됩니다.
+            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogDescription className="whitespace-pre-line">
+              {dialogDescription}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -97,7 +118,7 @@ export function ApproveCancelButton({
               onClick={handleApproveCancel}
               disabled={isLoading}
             >
-              {isLoading ? "처리 중..." : "예, 승인합니다"}
+              {isLoading ? "처리 중..." : confirmButtonText}
             </Button>
           </DialogFooter>
           {error && (

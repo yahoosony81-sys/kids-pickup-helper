@@ -1181,6 +1181,19 @@ WHERE pr.status = 'COMPLETED'
 - [x] 관련 `trip_participants` 삭제 (선택사항, 또는 상태만 업데이트)
 - **완료 기준**: 취소 시 상태 업데이트, 관련 초대/참여자 처리
 
+### Task 9.3: 제공자 취소 승인 기능
+- [x] `actions/pickup-cancel.ts`에 `requestCancel` 및 `approveCancel` 함수 추가
+  - [x] 출발 1시간 이내 취소 요청 시 `status = 'CANCEL_REQUESTED'`로 업데이트
+  - [x] 제공자가 취소 승인 시 `status = 'CANCELLED'`로 업데이트 및 `trip_participants` 삭제
+- [x] `components/pickup-requests/approve-cancel-button.tsx` 생성
+  - [x] 출발 1시간 전까지는 "확인" 버튼 (자동 승인)
+  - [x] 출발 1시간 이내는 "취소 승인" 버튼 (수동 승인 필요)
+- [x] `app/(routes)/trips/[tripId]/page.tsx`에 취소 요청 표시 및 승인 버튼 추가
+  - [x] `pickupRequest.status === 'CANCEL_REQUESTED'`일 때 "취소 요청됨" 배지 표시
+  - [x] `ApproveCancelButton` 컴포넌트 표시
+- [x] `actions/trips.ts`의 `getTripParticipants` 함수에서 `pickup_requests.status` 필드 조회 확인
+- **완료 기준**: 제공자가 Trip 상세 페이지에서 취소 요청을 확인하고 승인할 수 있음
+
 ---
 
 ### Phase 9 Plan Mode Build 상세 작업 내역
