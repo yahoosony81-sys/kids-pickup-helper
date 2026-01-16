@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { InvitationCard } from "@/components/invitations/invitation-card";
 import { PickupProgressTimeline } from "@/components/my/pickup-progress-timeline";
 import { ArrivalConfirmation } from "@/components/my/arrival-confirmation";
+import { CanceledBox } from "@/components/my/canceled-box";
 import { MapPin } from "lucide-react";
 import { formatDateTime, formatDateTimeShort } from "@/lib/utils";
 import Link from "next/link";
@@ -184,24 +185,35 @@ export async function OngoingRequestsTab({
                       </div>
                     )}
 
-                    {/* 픽업 진행 타임라인 (MATCHED 이상 상태에서만 표시) */}
-                    {(request.status === "MATCHED" ||
-                      request.status === "IN_PROGRESS" ||
-                      request.status === "COMPLETED") && (
+                    {/* 취소 상태 표시 */}
+                    {request.status === "CANCELLED" && (
                       <div className="pt-3 border-t">
-                        <PickupProgressTimeline
-                          progressStage={request.progress_stage}
-                          showConfirmButton={request.progress_stage === "ARRIVED"}
+                        <CanceledBox
+                          cancelReasonCode={request.cancel_reason_code}
+                          cancelReasonText={request.cancel_reason_text}
                         />
-                        {/* 도착 확인 UI (ARRIVED 상태에서만 표시) */}
-                        {request.progress_stage === "ARRIVED" && (
-                          <OngoingRequestsClient
-                            pickupRequestId={request.id}
-                            progressStage={request.progress_stage}
-                          />
-                        )}
                       </div>
                     )}
+
+                    {/* 픽업 진행 타임라인 (MATCHED 이상 상태에서만 표시, CANCELLED 제외) */}
+                    {request.status !== "CANCELLED" &&
+                      (request.status === "MATCHED" ||
+                        request.status === "IN_PROGRESS" ||
+                        request.status === "COMPLETED") && (
+                        <div className="pt-3 border-t">
+                          <PickupProgressTimeline
+                            progressStage={request.progress_stage}
+                            showConfirmButton={request.progress_stage === "ARRIVED"}
+                          />
+                          {/* 도착 확인 UI (ARRIVED 상태에서만 표시) */}
+                          {request.progress_stage === "ARRIVED" && (
+                            <OngoingRequestsClient
+                              pickupRequestId={request.id}
+                              progressStage={request.progress_stage}
+                            />
+                          )}
+                        </div>
+                      )}
                   </div>
                 </CardContent>
               </Card>

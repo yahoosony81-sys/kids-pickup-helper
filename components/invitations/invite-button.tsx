@@ -39,10 +39,26 @@ export function InviteButton({
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleInvite = async () => {
-    if (isTripLocked || hasPendingInvite || !isDateMatch) {
+  const handleInvite = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // 이벤트 전파 방지
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 중복 클릭 방지
+    if (isLoading || isTripLocked || hasPendingInvite || !isDateMatch) {
       return;
     }
+
+    // 디버깅: 클릭된 pickupRequestId 확인
+    console.group("🔘 [InviteButton 클릭]");
+    console.log("1️⃣ Trip ID:", tripId);
+    console.log("2️⃣ Pickup Request ID:", pickupRequestId);
+    console.log("3️⃣ Button 상태:", {
+      isLoading,
+      isTripLocked,
+      hasPendingInvite,
+      isDateMatch,
+    });
 
     setIsLoading(true);
     setError(null);
@@ -51,17 +67,23 @@ export function InviteButton({
       const result = await sendInvitation(tripId, pickupRequestId);
 
       if (!result.success) {
+        console.error("❌ 초대 전송 실패:", result.error);
         setError(result.error || "초대 전송에 실패했습니다.");
         setIsLoading(false);
+        console.groupEnd();
         return;
       }
+
+      console.log("✅ 초대 전송 성공");
+      console.groupEnd();
 
       // 성공 시 페이지 새로고침
       router.refresh();
     } catch (err) {
-      console.error("초대 전송 에러:", err);
+      console.error("❌ 초대 전송 에러:", err);
       setError("예상치 못한 오류가 발생했습니다. 다시 시도해주세요.");
       setIsLoading(false);
+      console.groupEnd();
     }
   };
 
@@ -105,6 +127,7 @@ export function InviteButton({
         className="w-full"
         disabled={isTripLocked || isLoading}
         onClick={handleInvite}
+        type="button"
       >
         {isLoading ? "전송 중..." : "초대하기"}
       </Button>

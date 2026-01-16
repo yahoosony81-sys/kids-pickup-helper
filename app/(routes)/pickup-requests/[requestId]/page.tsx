@@ -39,6 +39,7 @@ import { ArrowLeft, MapPin, Clock, AlertCircle, MessageSquare, X, Camera, Star }
 import { CancelRequestButton } from "@/components/pickup-requests/cancel-request-button";
 import { InvitationCard } from "@/components/invitations/invitation-card";
 import { PickupProgressTimeline } from "@/components/my/pickup-progress-timeline";
+import { CanceledBox } from "@/components/my/canceled-box";
 import { formatDateTime } from "@/lib/utils";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
@@ -172,8 +173,9 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
 
   const isExpired = pickupRequest.status === "EXPIRED";
 
-  // 진행 상태 표시 여부 (MATCHED 이상 상태일 때만)
+  // 진행 상태 표시 여부 (MATCHED 이상 상태일 때만, CANCELLED 제외)
   const showProgress = !isExpired && 
+    pickupRequest.status !== "CANCELLED" &&
     (pickupRequest.status === "MATCHED" || 
      pickupRequest.status === "IN_PROGRESS" || 
      pickupRequest.status === "COMPLETED");
@@ -319,6 +321,24 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
             )}
           </CardContent>
         </Card>
+
+        {/* 취소 상태 표시 섹션 */}
+        {!isExpired && pickupRequest.status === "CANCELLED" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">픽업 서비스 상태</CardTitle>
+              <CardDescription className="mt-1">
+                픽업 서비스가 제공되지 않았습니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CanceledBox
+                cancelReasonCode={pickupRequest.cancel_reason_code}
+                cancelReasonText={pickupRequest.cancel_reason_text}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* 진행 상태 표시 섹션 */}
         {showProgress && (

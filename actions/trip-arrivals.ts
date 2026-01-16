@@ -218,7 +218,35 @@ export async function uploadArrivalPhoto(
     console.log("✅ trip_arrivals INSERT 완료:", arrivalData.id);
 
     // 11. 관련 pickup_requests.status = 'COMPLETED', progress_stage = 'ARRIVED' 업데이트 (Phase 8 원칙: 도착 인증 시점에 서비스 완료)
+    // 중요: CANCELLED 상태인 요청은 제외
     console.log("🔄 pickup_requests 상태 업데이트 중...");
+    
+    // 현재 요청 상태 확인 (CANCELLED 상태인지 체크)
+    const { data: currentRequest, error: checkRequestError } = await supabase
+      .from("pickup_requests")
+      .select("id, status")
+      .eq("id", pickupRequestId)
+      .single();
+
+    if (checkRequestError) {
+      console.error("❌ 픽업 요청 상태 확인 실패:", checkRequestError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "픽업 요청 상태 확인에 실패했습니다.",
+      };
+    }
+
+    // CANCELLED 상태인 경우 업데이트하지 않음
+    if (currentRequest?.status === "CANCELLED") {
+      console.log("⚠️ CANCELLED 상태인 요청은 업데이트하지 않음:", pickupRequestId);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "취소된 픽업 요청에는 도착 사진을 업로드할 수 없습니다.",
+      };
+    }
+
     const now = new Date().toISOString();
     const { error: updateRequestError } = await supabase
       .from("pickup_requests")
@@ -226,7 +254,8 @@ export async function uploadArrivalPhoto(
         status: "COMPLETED",
         progress_stage: "ARRIVED",
       })
-      .eq("id", pickupRequestId);
+      .eq("id", pickupRequestId)
+      .neq("status", "CANCELLED"); // CANCELLED 상태 제외
 
     if (updateRequestError) {
       console.error("❌ pickup_requests 상태 업데이트 실패:", updateRequestError);
@@ -238,30 +267,45 @@ export async function uploadArrivalPhoto(
     }
     console.log("✅ pickup_requests 상태 업데이트 완료 (COMPLETED, ARRIVED)");
 
-    // 12. 모든 참여자 도착 확인
+    // 12. 모든 참여자 도착 확인 (CANCELLED 상태인 참여자 제외)
     console.log("📊 모든 참여자 도착 확인 중...");
     const { data: allParticipants, error: participantsCountError } = await supabase
       .from("trip_participants")
-      .select("id")
+      .select("id, pickup_request_id")
       .eq("trip_id", tripId);
+
+    // 참여자의 pickup_request 상태 확인 (CANCELLED 제외)
+    const participantRequestIds = allParticipants?.map((p) => p.pickup_request_id) || [];
+    const { data: participantRequests, error: requestsError } = await supabase
+      .from("pickup_requests")
+      .select("id, status")
+      .in("id", participantRequestIds);
+
+    // CANCELLED 상태가 아닌 참여자만 카운트
+    const validParticipantIds = participantRequests
+      ?.filter((req) => req.status !== "CANCELLED")
+      .map((req) => req.id) || [];
+    const validParticipantCount = allParticipants?.filter((p) =>
+      validParticipantIds.includes(p.pickup_request_id)
+    ).length || 0;
 
     const { data: allArrivals, error: arrivalsCountError } = await supabase
       .from("trip_arrivals")
       .select("id")
       .eq("trip_id", tripId);
 
-    if (participantsCountError || arrivalsCountError) {
+    if (participantsCountError || arrivalsCountError || requestsError) {
       console.error("❌ 참여자/도착 사진 수 조회 실패");
       console.groupEnd();
       // 에러가 나도 현재 업로드는 성공했으므로 계속 진행
     } else {
-      const participantCount = allParticipants?.length || 0;
       const arrivalCount = allArrivals?.length || 0;
-      console.log("📊 참여자 수:", participantCount, "도착 사진 수:", arrivalCount);
+      console.log("📊 정상 참여자 수:", validParticipantCount, "도착 사진 수:", arrivalCount);
 
-      // 13. 모든 참여자 도착 시 trips.status = 'COMPLETED', trips.arrived_at 업데이트 (Phase 8 원칙: 도착 인증 시점에 서비스 완료)
-      if (participantCount > 0 && arrivalCount >= participantCount) {
-        console.log("🎉 모든 참여자가 도착했습니다!");
+      // 13. 모든 정상 참여자 도착 시 trips.status = 'COMPLETED', trips.arrived_at 업데이트 (Phase 8 원칙: 도착 인증 시점에 서비스 완료)
+      // CANCELLED 상태인 참여자는 제외
+      if (validParticipantCount > 0 && arrivalCount >= validParticipantCount) {
+        console.log("🎉 모든 정상 참여자가 도착했습니다!");
         const { error: updateTripError } = await supabase
           .from("trips")
           .update({

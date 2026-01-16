@@ -13,6 +13,8 @@
  * 핵심 구현 로직:
  * - Clerk 인증 확인
  * - Profile ID 조회 (clerk_user_id 기준)
+ * - 초대장 생성 시 status는 반드시 'PENDING'으로 저장 (중요)
+ * - 'REQUESTED' 상태는 초대장에서 사용하지 않음 (픽업 요청의 상태만 사용)
  * - PRD Section 4 규칙 준수: 서버에서 초대 제약 강제 검증
  *   - 요청자는 동시에 PENDING 초대 1개만 허용
  *   - 제공자는 수락된 인원이 3명 미만일 때만 초대 가능
@@ -301,7 +303,9 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
       };
     }
 
-    // 7-2. 픽업 요청 상태 확인 (REQUESTED만 초대 가능)
+    // 7-2. 픽업 요청 상태 확인 (픽업 요청의 status가 'REQUESTED'인지 확인)
+    // 주의: 이것은 픽업 요청(pickup_request)의 상태입니다.
+    // 초대장(invitation)의 status는 항상 'PENDING'으로 시작합니다.
     if (pickupRequest.status !== "REQUESTED") {
       console.error("❌ 픽업 요청 상태가 REQUESTED가 아님:", { status: pickupRequest.status });
       console.groupEnd();
@@ -310,7 +314,7 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
         error: "이 픽업 요청은 이미 처리되었거나 취소되었습니다.",
       };
     }
-    console.log("✅ 픽업 요청 상태 확인 완료 (REQUESTED)");
+    console.log("✅ 픽업 요청 상태 확인 완료 (픽업 요청의 status: REQUESTED)");
 
     // 7-1. 날짜 불일치 검증: 그룹 날짜와 요청 날짜가 일치하는지 확인
     if (trip.scheduled_start_at && pickupRequest.pickup_time) {
@@ -339,12 +343,15 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
     }
 
     // 8. 요청자 PENDING 초대 1개 제한 검증
+    console.log("🔍 검증 시작 - 요청자 ID:", pickupRequest.requester_profile_id);
+    console.log("🔍 검증 시작 - 픽업 요청 ID:", pickupRequestId);
     const { data: existingInvitation, error: invitationCheckError } = await supabase
       .from("invitations")
       .select("id")
-      .eq("requester_profile_id", pickupRequest.requester_profile_id)
+      .eq("pickup_request_id", pickupRequestId)
       .eq("status", "PENDING")
       .maybeSingle();
+    console.log("🔍 검색 결과 (existingInvitation):", existingInvitation);
 
     if (invitationCheckError) {
       console.error("❌ 초대 조회 실패:", invitationCheckError);
@@ -408,8 +415,18 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
     console.log("✅ 그룹 인원 제한 검증 완료 (PENDING + ACCEPTED < 3)");
 
     // 10. 초대 레코드 생성
+    // 중요: 초대장의 status는 반드시 'PENDING'으로 저장됩니다.
+    // 'REQUESTED' 상태는 사용하지 않습니다.
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // 24시간 후 만료
+
+    console.log("📝 초대 레코드 생성 시작 (status: PENDING):", {
+      tripId,
+      pickupRequestId,
+      requesterProfileId: pickupRequest.requester_profile_id,
+      providerProfileId: providerProfile.id,
+      status: "PENDING", // 명시적으로 로그에 표시
+    });
 
     const { data: invitation, error: insertError } = await supabase
       .from("invitations")
@@ -418,7 +435,7 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
         pickup_request_id: pickupRequestId,
         provider_profile_id: providerProfile.id,
         requester_profile_id: pickupRequest.requester_profile_id,
-        status: "PENDING",
+        status: "PENDING", // 반드시 PENDING으로 저장
         expires_at: expiresAt.toISOString(),
         responded_at: null,
       })
@@ -448,9 +465,13 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
 
     console.log("✅ 초대 생성 완료:", {
       invitationId: invitation.id,
+      tripId: invitation.trip_id,
+      pickupRequestId: invitation.pickup_request_id,
+      requesterProfileId: invitation.requester_profile_id,
       status: invitation.status,
       expiresAt: invitation.expires_at,
     });
+    console.log("🔍 생성된 초대 확인: 하나의 초대만 생성되었습니다.");
     console.groupEnd();
 
     // 11. 캐시 무효화
@@ -553,6 +574,8 @@ export async function getTripInvitations(tripId: string, status?: string) {
     console.log("✅ Trip 소유자 확인 완료");
 
     // 5. 초대 목록 조회 (픽업 요청 정보 JOIN)
+    // 상태 필터가 없으면 PENDING과 ACCEPTED만 조회 (제공자 상세 페이지에서 사용)
+    // 상태 필터가 있으면 해당 상태만 조회
     let query = supabase
       .from("invitations")
       .select(
@@ -562,6 +585,8 @@ export async function getTripInvitations(tripId: string, status?: string) {
         expires_at,
         responded_at,
         created_at,
+        pickup_request_id,
+        requester_profile_id,
         pickup_request:pickup_requests!inner(
           id,
           pickup_time,
@@ -578,6 +603,9 @@ export async function getTripInvitations(tripId: string, status?: string) {
       query = query.eq("status", status);
       console.log("📋 상태 필터링 적용:", { status });
     }
+    // 상태 필터가 없으면 모든 상태 조회 (초대 페이지에서 사용)
+    
+    console.log("🔍 쿼리 실행 전 - trip_id:", tripId);
 
     // 초대 상태별 정렬 (PENDING → ACCEPTED → REJECTED → EXPIRED)
     // Supabase는 직접적인 enum 정렬이 어려우므로, created_at 기준 내림차순으로 정렬
@@ -594,6 +622,16 @@ export async function getTripInvitations(tripId: string, status?: string) {
         data: [],
       };
     }
+    
+    console.log("🔍 초대 목록 조회 결과 (원본):", {
+      count: invitations?.length || 0,
+      invitations: invitations?.map((inv: any) => ({
+        id: inv.id,
+        status: inv.status,
+        pickup_request_id: inv.pickup_request_id,
+        has_pickup_request: !!inv.pickup_request,
+      })),
+    });
 
     // 상태별 정렬 (클라이언트 사이드에서 처리)
     const statusOrder: Record<string, number> = {

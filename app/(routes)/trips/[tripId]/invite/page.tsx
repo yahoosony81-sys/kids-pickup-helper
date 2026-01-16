@@ -331,6 +331,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
                 </CardHeader>
                 <CardContent>
                   <InviteButton
+                    key={`invite-${request.id}`}
                     tripId={trip.id}
                     pickupRequestId={request.id}
                     isTripLocked={trip.is_locked}

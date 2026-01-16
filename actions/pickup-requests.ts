@@ -373,15 +373,14 @@ export async function getAvailablePickupRequests() {
 
     console.log("✅ 픽업 요청 조회 완료:", { count: pickupRequests?.length || 0 });
 
-    // 4. 각 요청자에 대해 PENDING 초대 존재 여부 확인 (requester_profile_id 기준, 배치 쿼리로 최적화)
-    // sendInvitation()과 동일한 기준 사용: requester_profile_id 기준으로 PENDING 초대 확인
-    const requesterIds = [
-      ...new Set((pickupRequests || []).map((req) => req.requester_profile_id)),
-    ];
+    // 4. 각 픽업 요청에 대해 PENDING 초대 존재 여부 확인 (pickup_request_id 기준)
+    // 수정: requester_profile_id가 아닌 pickup_request_id 기준으로 확인
+    // 이렇게 하면 특정 픽업 요청에 대한 초대만 확인할 수 있습니다
+    const requestIds = (pickupRequests || []).map((req) => req.id);
     const { data: pendingInvitations, error: pendingCheckError } = await supabase
       .from("invitations")
-      .select("requester_profile_id")
-      .in("requester_profile_id", requesterIds)
+      .select("pickup_request_id")
+      .in("pickup_request_id", requestIds)
       .eq("status", "PENDING");
 
     if (pendingCheckError) {
@@ -389,14 +388,14 @@ export async function getAvailablePickupRequests() {
       // 에러가 발생해도 계속 진행 (hasPendingInvite는 false로 처리)
     }
 
-    // PENDING 초대가 있는 requester_profile_id 집합 생성
-    const pendingRequesterIds = new Set(
-      (pendingInvitations || []).map((inv) => inv.requester_profile_id)
+    // PENDING 초대가 있는 pickup_request_id 집합 생성
+    const pendingRequestIds = new Set(
+      (pendingInvitations || []).map((inv) => inv.pickup_request_id)
     );
 
     console.log("✅ PENDING 초대 확인 완료:", {
-      totalRequesters: requesterIds.length,
-      pendingCount: pendingRequesterIds.size,
+      totalRequests: requestIds.length,
+      pendingCount: pendingRequestIds.size,
     });
 
     // 5. 주소 파싱 및 제한된 정보만 반환 (hasPendingInvite 포함)
@@ -421,7 +420,7 @@ export async function getAvailablePickupRequests() {
         origin_area: originArea,
         destination_area: destinationArea,
         destination_type: destinationType,
-        hasPendingInvite: pendingRequesterIds.has(request.requester_profile_id),
+        hasPendingInvite: pendingRequestIds.has(request.id),
       };
     });
 

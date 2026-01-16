@@ -26,14 +26,12 @@ import { getTripReviews } from "@/actions/trip-reviews";
 import { getTripInvitations } from "@/actions/invitations";
 import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
 import { StartTripButton } from "@/components/trips/start-trip-button";
-import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
+import { StudentCard } from "@/components/trips/student-card";
 import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
-import { ApproveCancelButton } from "@/components/pickup-requests/approve-cancel-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { ArrowLeft, Lock, Users, MapPin, Clock, Calendar, Camera, CheckCircle2, Plus, Star, MessageSquare } from "lucide-react";
+import { ArrowLeft, Lock, Users, Clock, Calendar, Camera, CheckCircle2, Plus, Star } from "lucide-react";
 import { PageNavActions } from "@/components/page-nav-actions";
 import { notFound } from "next/navigation";
 import { formatDateTime } from "@/lib/utils";
@@ -90,15 +88,45 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   // 2. 참여자 목록 조회
   const participantsResult = await getTripParticipants(tripId);
 
-  // 2-1. ACCEPTED invitation 목록 조회 (메시지 스레드 매핑용)
-  const acceptedInvitationsResult = await getTripInvitations(tripId, "ACCEPTED");
-  const acceptedInvitations = acceptedInvitationsResult.success
-    ? acceptedInvitationsResult.data || []
+  // 2-1. 초대 목록 조회 (PENDING, ACCEPTED 모두 포함)
+  // 상태 필터 없이 한 번만 호출하여 모든 초대를 가져온 후, PENDING과 ACCEPTED만 필터링
+  const invitationsResult = await getTripInvitations(tripId);
+  const allInvitations = invitationsResult.success
+    ? invitationsResult.data || []
     : [];
+  
+  // PENDING과 ACCEPTED만 필터링 (활성 초대만)
+  const activeInvitations = allInvitations.filter(
+    (inv: any) => inv.status === "PENDING" || inv.status === "ACCEPTED"
+  );
+  
+  // PENDING과 ACCEPTED로 분리
+  const acceptedInvitations = activeInvitations.filter(
+    (inv: any) => inv.status === "ACCEPTED"
+  );
+  const pendingInvitations = activeInvitations.filter(
+    (inv: any) => inv.status === "PENDING"
+  );
+  
+  console.log("🔍 [TripDetailPage] 초대 목록 조회 결과:", {
+    total: allInvitations.length,
+    active: activeInvitations.length,
+    accepted: acceptedInvitations.length,
+    pending: pendingInvitations.length,
+    statuses: allInvitations.map((inv: any) => inv.status),
+  });
   
   // participant와 invitation 매핑 (pickup_request_id 기준)
   const invitationMap = new Map<string, string>();
   acceptedInvitations.forEach((invitation: any) => {
+    const pickupRequest = invitation.pickup_request;
+    if (pickupRequest?.id) {
+      invitationMap.set(pickupRequest.id, invitation.id);
+    }
+  });
+
+  // PENDING invitation도 매핑에 추가 (메시지는 없지만 표시용)
+  pendingInvitations.forEach((invitation: any) => {
     const pickupRequest = invitation.pickup_request;
     if (pickupRequest?.id) {
       invitationMap.set(pickupRequest.id, invitation.id);
@@ -154,6 +182,32 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
   const participants = participantsResult.data || [];
   const participantCount = participants.length;
+  
+  // PENDING 초대를 가상의 participant 형태로 변환
+  const pendingParticipants = pendingInvitations.map((invitation: any) => {
+    const pickupRequest = invitation.pickup_request;
+    return {
+      id: `pending-${invitation.id}`, // 가상 ID
+      trip_id: tripId,
+      pickup_request_id: pickupRequest?.id,
+      requester_profile_id: invitation.requester_profile_id,
+      sequence_order: participants.length + 1, // 마지막 순서
+      created_at: invitation.created_at,
+      is_pending: true, // PENDING 상태 표시용
+      invitation_id: invitation.id,
+      pickup_request: pickupRequest,
+    };
+  });
+  
+  // ACCEPTED 참여자와 PENDING 초대를 합침
+  const allParticipants = [...participants, ...pendingParticipants];
+  const totalCount = allParticipants.length;
+  
+  // 활성 초대 수 계산 (ACCEPTED + PENDING)
+  const activeInvitationCount = acceptedInvitations.length + pendingInvitations.length;
+  // 초대 가능 여부 확인: 활성 초대 수 < capacity && LOCK되지 않음 && EXPIRED 아님
+  const canInvite = activeInvitationCount < trip.capacity && !trip.is_locked && trip.status !== "EXPIRED";
+  
   const statusInfo = statusConfig[trip.status] || {
     label: trip.status,
     className: "bg-gray-100 text-gray-800",
@@ -252,11 +306,11 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           <CardHeader>
             <CardTitle>참여자 목록</CardTitle>
             <CardDescription>
-              이 픽업제공에 참여하는 요청자 목록입니다. ({participantCount}명)
+              이 픽업제공에 참여하는 요청자 목록입니다. (수락: {participantCount}명, 대기: {pendingInvitations.length}명)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {participantCount === 0 ? (
+            {totalCount === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>아직 참여자가 없습니다.</p>
@@ -270,172 +324,43 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {participants.map((participant: any, index: number) => {
-                  const pickupRequest = participant.pickup_request as any;
-                  
-                  // pickupRequest가 없는 경우에도 참여자 정보 표시
-                  if (!pickupRequest) {
+              <>
+                <div className="space-y-4">
+                  {allParticipants.map((participant: any, index: number) => {
+                    const pickupRequest = participant.pickup_request as any;
+                    const inviteId = pickupRequest
+                      ? invitationMap.get(pickupRequest.id)
+                      : undefined;
+                    const unreadCount = inviteId ? unreadCounts[inviteId] || 0 : 0;
+                    const arrivalPhotoUrl = arrivalPhotosMap[pickupRequest?.id] || null;
+                    const isPending = participant.is_pending === true;
+
                     return (
-                      <Card key={participant.id} className="border-l-4 border-l-gray-500">
-                        <CardContent className="pt-4">
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-lg">
-                                  #{index + 1}
-                                </span>
-                                <span className="px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
-                                  정보 없음
-                                </span>
-                              </div>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              픽업 요청 정보를 불러올 수 없습니다.
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <StudentCard
+                        key={participant.id}
+                        participant={participant}
+                        index={index}
+                        tripId={tripId}
+                        tripIsLocked={trip.is_locked}
+                        inviteId={inviteId}
+                        unreadCount={unreadCount}
+                        arrivalPhotoUrl={arrivalPhotoUrl}
+                        isPending={isPending}
+                      />
                     );
-                  }
-                  
-                  return (
-                    <Card key={participant.id} className="border-l-4 border-l-blue-500">
-                      <CardContent className="pt-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-lg">
-                                #{index + 1}
-                              </span>
-                              <span
-                                className={`px-2 py-1 rounded-md text-xs font-medium ${
-                                  pickupRequest.status === "CANCEL_REQUESTED"
-                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                                    : pickupRequest.status === "IN_PROGRESS"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : pickupRequest.status === "COMPLETED"
-                                        ? "bg-gray-100 text-gray-800"
-                                        : pickupRequest.status === "CANCELLED"
-                                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                                          : "bg-blue-100 text-blue-800"
-                                }`}
-                              >
-                                {pickupRequest.status === "CANCEL_REQUESTED"
-                                  ? "취소 요청됨"
-                                  : pickupRequest.status === "IN_PROGRESS"
-                                    ? "진행중"
-                                    : pickupRequest.status === "COMPLETED"
-                                      ? "완료"
-                                      : pickupRequest.status === "CANCELLED"
-                                        ? "취소됨"
-                                        : "매칭됨"}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-2 text-sm">
-                            <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
-                            <div>
-                              <span className="text-muted-foreground">픽업 시간:</span>
-                              <span className="font-medium ml-2">
-                                {formatDateTime(pickupRequest.pickup_time)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {pickupRequest.started_at && (
-                            <div className="flex items-start gap-2 text-sm">
-                              <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
-                              <div>
-                                <span className="text-muted-foreground">출발 시간:</span>
-                                <span className="font-medium ml-2">
-                                  {formatDateTime(pickupRequest.started_at)}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex items-start gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                            <div className="flex-1">
-                              <div>
-                                <span className="text-muted-foreground">출발지:</span>
-                                <span className="font-medium ml-2">
-                                  {pickupRequest.origin_text}
-                                </span>
-                              </div>
-                              <div className="mt-1">
-                                <span className="text-muted-foreground">목적지:</span>
-                                <span className="font-medium ml-2">
-                                  {pickupRequest.destination_text}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 취소 승인 버튼 (CANCEL_REQUESTED 상태일 때만) */}
-                          {pickupRequest.status === "CANCEL_REQUESTED" && (
-                            <div className="mt-4 pt-4 border-t">
-                              <ApproveCancelButton 
-                                pickupRequestId={pickupRequest.id}
-                                pickupTime={pickupRequest.pickup_time}
-                              />
-                            </div>
-                          )}
-
-                          {/* 메시지 작성 버튼 (ACCEPTED invitation이 있는 경우만) */}
-                          {pickupRequest && invitationMap.has(pickupRequest.id) && (() => {
-                            const inviteId = invitationMap.get(pickupRequest.id)!;
-                            const unreadCount = unreadCounts[inviteId] || 0;
-                            console.log(`🔍 [TripDetailPage] 메시지 버튼 렌더링:`, {
-                              pickupRequestId: pickupRequest.id,
-                              inviteId,
-                              unreadCount,
-                              hasUnreadCount: unreadCount > 0,
-                              allUnreadCounts: unreadCounts,
-                            });
-                            return (
-                              <div className="mt-4 pt-4 border-t">
-                                <Button asChild variant="outline" className="w-full relative">
-                                  <Link href={`/trips/${tripId}/messages/${inviteId}`}>
-                                    <MessageSquare className="mr-2 h-4 w-4" />
-                                    메시지 작성
-                                    {unreadCount > 0 && (
-                                      <Badge 
-                                        variant="destructive" 
-                                        className="ml-2 h-5 min-w-5 px-1.5 text-xs"
-                                      >
-                                        {unreadCount > 9 ? "9+" : unreadCount}
-                                      </Badge>
-                                    )}
-                                  </Link>
-                                </Button>
-                              </div>
-                            );
-                          })()}
-
-                          {/* 도착 사진 업로드 (LOCK된 경우만, 제공자만) */}
-                          {trip.is_locked && (
-                            <div className="mt-4 pt-4 border-t">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Camera className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">도착 사진</span>
-                              </div>
-                              <UploadArrivalPhoto
-                                tripId={tripId}
-                                pickupRequestId={pickupRequest.id}
-                                isAlreadyUploaded={!!arrivalPhotosMap[pickupRequest.id]}
-                                existingPhotoUrl={arrivalPhotosMap[pickupRequest.id]}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                  })}
+                </div>
+                {/* 초대하기 버튼 (초대 가능할 때만 표시) */}
+                {canInvite && (
+                  <div className="mt-6 pt-6 border-t">
+                    <Button asChild variant="outline" className="w-full">
+                      <Link href={`/trips/${tripId}/invite`}>
+                        초대하기
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -455,6 +380,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 isLocked={trip.is_locked}
                 participantCount={participantCount}
                 tripStatus={trip.status}
+                participants={participants}
               />
             </CardContent>
           </Card>

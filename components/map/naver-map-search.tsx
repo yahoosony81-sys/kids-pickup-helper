@@ -510,6 +510,32 @@ export function NaverMapSearch({
     return placeKeywords.some(keyword => query.includes(keyword));
   };
 
+  const geocodeAddressToCoords = async (
+    address: string
+  ): Promise<{ lat: number; lng: number } | null> => {
+    if (!address || !window.naver?.maps?.Service?.geocode) {
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      window.naver.maps.Service.geocode(
+        { query: address },
+        (status: any, response: any) => {
+          if (status === window.naver.maps.Service.Status.OK && response?.v2?.addresses?.[0]) {
+            const addr = response.v2.addresses[0];
+            const lat = parseFloat(String(addr.y || addr.lat || ""));
+            const lng = parseFloat(String(addr.x || addr.lng || ""));
+            if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+              resolve({ lat, lng });
+              return;
+            }
+          }
+          resolve(null);
+        }
+      );
+    });
+  };
+
   // Local Search API로 장소 검색 (서버 사이드 API Route 사용)
   const searchPlaces = async (query: string): Promise<SearchResult[]> => {
     try {
@@ -746,31 +772,43 @@ export function NaverMapSearch({
           // 결과가 1개일 때만 자동 선택
           if (allResults.length === 1) {
             const firstResult = allResults[0];
-            const lat = parseFloat(firstResult.y);
-            const lng = parseFloat(firstResult.x);
+          let lat = parseFloat(firstResult.y);
+          let lng = parseFloat(firstResult.x);
             const addressText = firstResult.title 
               ? `${firstResult.title} (${firstResult.roadAddress || firstResult.jibunAddress})`
               : firstResult.roadAddress || firstResult.jibunAddress || cleanedQuery;
 
-            if (!isNaN(lat) && !isNaN(lng)) {
-              if (mapInstanceRef.current) {
-                mapInstanceRef.current.setCenter(
+          if (Number.isNaN(lat) || Number.isNaN(lng)) {
+            console.warn("⚠️ 좌표 없음, 주소로 재변환 시도 (Places 결과)");
+            const fallbackAddress = firstResult.roadAddress || firstResult.jibunAddress || addressText;
+            const fallbackCoords = await geocodeAddressToCoords(fallbackAddress);
+            if (fallbackCoords) {
+              lat = fallbackCoords.lat;
+              lng = fallbackCoords.lng;
+            }
+          }
+
+          if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.setCenter(
+                new window.naver.maps.LatLng(lat, lng)
+              );
+              mapInstanceRef.current.setZoom(17);
+              
+              if (markerRef.current) {
+                markerRef.current.setPosition(
                   new window.naver.maps.LatLng(lat, lng)
                 );
-                mapInstanceRef.current.setZoom(17);
-                
-                if (markerRef.current) {
-                  markerRef.current.setPosition(
-                    new window.naver.maps.LatLng(lat, lng)
-                  );
-                } else {
-                  markerRef.current = new window.naver.maps.Marker({
-                    position: new window.naver.maps.LatLng(lat, lng),
-                    map: mapInstanceRef.current,
-                  });
-                }
+              } else {
+                markerRef.current = new window.naver.maps.Marker({
+                  position: new window.naver.maps.LatLng(lat, lng),
+                  map: mapInstanceRef.current,
+                });
               }
-              onChange({ text: addressText, lat, lng });
+            }
+            onChange({ text: addressText, lat, lng });
+          } else {
+            console.error("❌ 좌표 변환 실패 (Places 단일 결과)");
             }
           }
           console.groupEnd();
@@ -902,8 +940,8 @@ export function NaverMapSearch({
       if (allResults.length === 1) {
         // 결과가 1개일 때 자동 선택
         const firstResult = allResults[0];
-        const lat = parseFloat(firstResult.y);
-        const lng = parseFloat(firstResult.x);
+        let lat = parseFloat(firstResult.y);
+        let lng = parseFloat(firstResult.x);
         const addressText = firstResult.title
           ? `${firstResult.title} (${firstResult.roadAddress || firstResult.jibunAddress})`
           : firstResult.roadAddress || firstResult.jibunAddress || cleanedQuery;
@@ -916,8 +954,18 @@ export function NaverMapSearch({
           addressText,
         });
 
-        if (isNaN(lat) || isNaN(lng)) {
-          console.error("❌ 좌표 파싱 실패");
+        if (Number.isNaN(lat) || Number.isNaN(lng)) {
+          console.warn("⚠️ 좌표 없음, 주소로 재변환 시도 (Geocoding 결과)");
+          const fallbackAddress = firstResult.roadAddress || firstResult.jibunAddress || addressText;
+          const fallbackCoords = await geocodeAddressToCoords(fallbackAddress);
+          if (fallbackCoords) {
+            lat = fallbackCoords.lat;
+            lng = fallbackCoords.lng;
+          }
+        }
+
+        if (Number.isNaN(lat) || Number.isNaN(lng)) {
+          console.error("❌ 좌표 변환 실패");
           console.error("   원본 데이터:", {
             y: firstResult.y,
             x: firstResult.x,
@@ -992,15 +1040,27 @@ export function NaverMapSearch({
   };
 
   // 검색 결과 선택 핸들러
-  const handleSelectResult = (result: SearchResult) => {
-    const lat = parseFloat(result.y);
-    const lng = parseFloat(result.x);
+  const handleSelectResult = async (result: SearchResult) => {
+    let lat = parseFloat(result.y);
+    let lng = parseFloat(result.x);
     const addressText = result.title
       ? `${result.title} (${result.roadAddress || result.jibunAddress})`
       : result.roadAddress || result.jibunAddress || searchQuery;
 
-    if (isNaN(lat) || isNaN(lng)) {
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      console.warn("⚠️ 좌표 없음, 주소로 재변환 시도 (선택)");
+      const fallbackAddress =
+        result.roadAddress || result.jibunAddress || addressText || searchQuery;
+      const fallbackCoords = await geocodeAddressToCoords(fallbackAddress);
+      if (fallbackCoords) {
+        lat = fallbackCoords.lat;
+        lng = fallbackCoords.lng;
+      }
+    }
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
       console.error("❌ 좌표 파싱 실패:", result);
+      alert("좌표를 가져오지 못했습니다. 다른 주소로 다시 검색해주세요.");
       return;
     }
 

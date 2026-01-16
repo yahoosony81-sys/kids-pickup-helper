@@ -663,6 +663,7 @@ export async function getTripParticipants(tripId: string) {
     console.log("✅ Trip 소유자 확인 완료");
 
     // 5. 참여자 목록 조회 (픽업 요청 정보 JOIN)
+    // is_met_at_pickup 컬럼이 없을 수 있으므로, 먼저 기본 필드만 조회
     const { data: participants, error: participantsError } = await supabase
       .from("trip_participants")
       .select(
@@ -725,11 +726,19 @@ export async function getTripParticipants(tripId: string) {
     console.log("✅ 참여자 목록 조회 완료:", {
       count: participants?.length || 0,
     });
+
+    // is_met_at_pickup 컬럼이 있는지 확인하고, 없으면 기본값 false로 설정
+    // 마이그레이션이 적용되지 않은 경우를 대비
+    const participantsWithMetStatus = (participants || []).map((p: any) => ({
+      ...p,
+      is_met_at_pickup: p.is_met_at_pickup !== undefined ? p.is_met_at_pickup : false,
+    }));
+
     console.groupEnd();
 
     return {
       success: true,
-      data: participants || [],
+      data: participantsWithMetStatus,
     };
   } catch (error) {
     console.error("❌ getTripParticipants 에러:", error);
@@ -737,6 +746,138 @@ export async function getTripParticipants(tripId: string) {
       success: false,
       error: "예상치 못한 오류가 발생했습니다.",
       data: [],
+    };
+  }
+}
+
+/**
+ * 픽업 장소 도착 확인 처리
+ * 
+ * 제공자가 학생을 만났을 때 호출하는 함수입니다.
+ * trip_participants.is_met_at_pickup을 true로 업데이트합니다.
+ * 
+ * @param tripId - Trip ID
+ * @param participantId - Trip Participant ID
+ * @returns 성공/실패 결과 및 에러 메시지
+ */
+export async function markStudentMetAtPickup(
+  tripId: string,
+  participantId: string
+) {
+  try {
+    console.group("✅ [픽업 장소 도착 확인] 시작");
+    console.log("1️⃣ Trip ID:", tripId);
+    console.log("2️⃣ Participant ID:", participantId);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ Profile 조회 완료:", { profileId: profile.id });
+
+    // 3. Trip 조회 및 소유자 확인
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("id", tripId)
+      .single();
+
+    if (tripError || !trip) {
+      console.error("❌ Trip 조회 실패:", tripError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "Trip을 찾을 수 없습니다.",
+      };
+    }
+
+    // 4. Trip 소유자 확인 (제공자만 가능)
+    if (trip.provider_profile_id !== profile.id) {
+      console.error("❌ Trip 소유자가 아님:", {
+        tripProviderId: trip.provider_profile_id,
+        currentProfileId: profile.id,
+      });
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 Trip에 대한 접근 권한이 없습니다.",
+      };
+    }
+    console.log("✅ Trip 소유자 확인 완료");
+
+    // 5. Participant 조회 및 소유자 확인
+    const { data: participant, error: participantError } = await supabase
+      .from("trip_participants")
+      .select("trip_id")
+      .eq("id", participantId)
+      .eq("trip_id", tripId)
+      .single();
+
+    if (participantError || !participant) {
+      console.error("❌ Participant 조회 실패:", participantError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "참여자 정보를 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ Participant 조회 완료");
+
+    // 6. is_met_at_pickup 업데이트
+    const { error: updateError } = await supabase
+      .from("trip_participants")
+      .update({ is_met_at_pickup: true })
+      .eq("id", participantId)
+      .eq("trip_id", tripId);
+
+    if (updateError) {
+      console.error("❌ 업데이트 실패:", updateError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "도착 확인 처리에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+    console.log("✅ 도착 확인 업데이트 완료");
+
+    // 7. 페이지 revalidate
+    revalidatePath(`/trips/${tripId}`);
+
+    console.log("✅ [픽업 장소 도착 확인] 완료");
+    console.groupEnd();
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("❌ markStudentMetAtPickup 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
     };
   }
 }
@@ -852,7 +993,8 @@ export async function startTrip(tripId: string) {
     console.log("✅ Trip LOCK 상태 확인 완료 (is_locked = false)");
 
     // 6. Trip에 참여자 존재 확인
-    const { data: participants, error: participantsError } = await supabase
+    // is_met_at_pickup 컬럼이 없을 수 있으므로, 먼저 기본 필드만 조회
+    const { data: allParticipants, error: participantsError } = await supabase
       .from("trip_participants")
       .select("id, pickup_request_id")
       .eq("trip_id", tripId);
@@ -874,10 +1016,10 @@ export async function startTrip(tripId: string) {
       };
     }
 
-    const participantCount = participants?.length || 0;
-    console.log("📊 참여자 수:", { participantCount });
+    const totalParticipantCount = allParticipants?.length || 0;
+    console.log("📊 전체 참여자 수:", { totalParticipantCount });
 
-    if (participantCount === 0) {
+    if (totalParticipantCount === 0) {
       console.error("❌ 참여자가 없음");
       console.groupEnd();
       return {
@@ -885,7 +1027,24 @@ export async function startTrip(tripId: string) {
         error: "참여자가 없어 출발할 수 없습니다.",
       };
     }
-    console.log("✅ 참여자 존재 확인 완료");
+
+    // 6-1. 확인된 학생 필터링 (is_met_at_pickup === true인 학생만)
+    // 컬럼이 없으면 모든 참여자를 포함 (마이그레이션 미적용 시)
+    const participants = allParticipants?.filter(
+      (p) => p.is_met_at_pickup === true || p.is_met_at_pickup === undefined
+    ) || [];
+    const participantCount = participants.length;
+    console.log("✅ 확인된 학생 수:", { participantCount, totalCount: totalParticipantCount });
+
+    if (participantCount === 0) {
+      console.error("❌ 확인된 학생이 없음");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "픽업 장소 도착 확인이 된 학생이 없어 출발할 수 없습니다.",
+      };
+    }
+    console.log("✅ 확인된 학생 존재 확인 완료");
 
     // 7. 트랜잭션 처리 (순차 실행)
     console.group("🔄 트랜잭션 처리 시작");
@@ -934,23 +1093,45 @@ export async function startTrip(tripId: string) {
     console.log("✅ PENDING 초대 EXPIRED 처리 완료");
 
     // 7-3. 관련 pickup_requests.status = 'IN_PROGRESS', progress_stage = 'STARTED' 업데이트
+    // 중요: 정상 출발한 학생만 업데이트 (CANCELLED 상태인 학생은 제외)
     console.log("3️⃣ 픽업 요청 상태 업데이트 중...");
-    const pickupRequestIds = participants?.map((p) => p.pickup_request_id) || [];
     const now = new Date().toISOString();
     
-    // 디버깅: 업데이트 대상 정보 로깅
+    // 정상 출발한 학생의 pickup_request_id만 필터링
+    // CANCELLED 상태인 요청은 제외
+    const { data: validRequests, error: checkStatusError } = await supabase
+      .from("pickup_requests")
+      .select("id, status")
+      .in("id", participants?.map((p) => p.pickup_request_id) || []);
+
+    if (checkStatusError) {
+      console.error("❌ 픽업 요청 상태 확인 실패:", checkStatusError);
+      console.groupEnd();
+      console.groupEnd();
+      return {
+        success: false,
+        error: "픽업 요청 상태 확인에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+
+    // CANCELLED 상태가 아닌 요청만 필터링
+    const validRequestIds = validRequests
+      ?.filter((req) => req.status !== "CANCELLED")
+      .map((req) => req.id) || [];
+
     console.log("📋 업데이트 대상 정보:", {
-      pickupRequestIds,
-      count: pickupRequestIds.length,
-      participantCount: participants?.length || 0,
+      totalParticipants: participants?.length || 0,
+      validRequestIds,
+      validCount: validRequestIds.length,
+      cancelledCount: (participants?.length || 0) - validRequestIds.length,
     });
 
-    if (pickupRequestIds.length > 0) {
+    if (validRequestIds.length > 0) {
       // 업데이트 전 현재 상태 확인
       const { data: currentRequests, error: checkError } = await supabase
         .from("pickup_requests")
         .select("id, status, progress_stage, started_at")
-        .in("id", pickupRequestIds);
+        .in("id", validRequestIds);
 
       if (checkError) {
         console.error("❌ 업데이트 전 요청 상태 확인 실패:", checkError);
@@ -965,7 +1146,7 @@ export async function startTrip(tripId: string) {
           progress_stage: "STARTED",
           started_at: now,
         })
-        .in("id", pickupRequestIds);
+        .in("id", validRequestIds);
 
       if (updateRequestsError) {
         // 상세한 에러 정보 로깅
@@ -1051,9 +1232,9 @@ export async function startTrip(tripId: string) {
           error: migrationHint ? `${errorMessage}\n${migrationHint}` : errorMessage,
         };
       }
-      console.log("✅ 픽업 요청 상태 업데이트 완료:", { count: pickupRequestIds.length });
+      console.log("✅ 픽업 요청 상태 업데이트 완료:", { count: validRequestIds.length });
     } else {
-      console.log("⚠️ 업데이트할 픽업 요청이 없음");
+      console.log("⚠️ 업데이트할 픽업 요청이 없음 (모두 취소되었거나 참여자가 없음)");
     }
 
     console.groupEnd(); // 트랜잭션 처리 종료
@@ -1072,6 +1253,152 @@ export async function startTrip(tripId: string) {
     return {
       success: false,
       error: "예상치 못한 오류가 발생했습니다. 다시 시도해주세요.",
+    };
+  }
+}
+
+/**
+ * 미도착 학생 취소 처리
+ * 
+ * 제공자가 출발하기 전에 픽업 장소에 도착하지 않은 학생들을 취소 처리합니다.
+ * 여러 학생을 한 번에 취소 처리할 수 있으며, 각 학생별로 취소 사유를 지정합니다.
+ * 
+ * @param tripId - Trip ID
+ * @param cancellations - 취소할 학생 목록 및 사유
+ * @returns 성공/실패 결과 및 에러 메시지
+ */
+export async function cancelUnmetStudents(
+  tripId: string,
+  cancellations: Array<{
+    participantId: string;
+    pickupRequestId: string;
+    cancelReasonCode: "NO_SHOW" | "CANCEL";
+    cancelReasonText?: string;
+  }>
+) {
+  try {
+    console.group("🚫 [미도착 학생 취소 처리] 시작");
+    console.log("1️⃣ Trip ID:", tripId);
+    console.log("2️⃣ 취소 대상 학생 수:", cancellations.length);
+
+    // 1. 인증 확인
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Profile ID 조회
+    const supabase = createClerkSupabaseClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+      };
+    }
+    console.log("✅ Profile 조회 완료:", { profileId: profile.id });
+
+    // 3. Trip 조회 및 소유자 확인
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("id", tripId)
+      .single();
+
+    if (tripError || !trip) {
+      console.error("❌ Trip 조회 실패:", tripError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "Trip을 찾을 수 없습니다.",
+      };
+    }
+
+    if (trip.provider_profile_id !== profile.id) {
+      console.error("❌ Trip 소유자가 아님");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이 Trip의 소유자만 취소 처리할 수 있습니다.",
+      };
+    }
+    console.log("✅ Trip 소유자 확인 완료");
+
+    // 4. 이미 출발한 경우 취소 불가
+    if (trip.is_locked) {
+      console.error("❌ 이미 출발한 Trip은 취소할 수 없음");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "이미 출발한 Trip은 취소할 수 없습니다.",
+      };
+    }
+
+    // 5. 취소 처리: 각 pickup_request 업데이트
+    const pickupRequestIds = cancellations.map((c) => c.pickupRequestId);
+    console.log("3️⃣ 취소 처리 중...", { pickupRequestIds });
+
+    // 각 취소 요청에 대해 업데이트
+    const updatePromises = cancellations.map(async (cancellation) => {
+      const { error: updateError } = await supabase
+        .from("pickup_requests")
+        .update({
+          status: "CANCELLED",
+          cancel_reason_code: cancellation.cancelReasonCode,
+          cancel_reason_text: cancellation.cancelReasonText || null,
+        })
+        .eq("id", cancellation.pickupRequestId);
+
+      if (updateError) {
+        console.error(
+          `❌ 픽업 요청 ${cancellation.pickupRequestId} 취소 실패:`,
+          updateError
+        );
+        throw updateError;
+      }
+
+      console.log(
+        `✅ 픽업 요청 ${cancellation.pickupRequestId} 취소 완료:`,
+        {
+          reasonCode: cancellation.cancelReasonCode,
+          reasonText: cancellation.cancelReasonText || "(없음)",
+        }
+      );
+    });
+
+    await Promise.all(updatePromises);
+    console.log("✅ 모든 취소 처리 완료");
+
+    // 6. 캐시 무효화
+    revalidatePath("/trips");
+    revalidatePath(`/trips/${tripId}`);
+
+    console.groupEnd();
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("❌ cancelUnmetStudents 에러:", error);
+    console.groupEnd();
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "예상치 못한 오류가 발생했습니다. 다시 시도해주세요.",
     };
   }
 }
