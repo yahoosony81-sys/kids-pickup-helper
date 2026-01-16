@@ -993,10 +993,10 @@ export async function startTrip(tripId: string) {
     console.log("✅ Trip LOCK 상태 확인 완료 (is_locked = false)");
 
     // 6. Trip에 참여자 존재 확인
-    // is_met_at_pickup 컬럼이 없을 수 있으므로, 먼저 기본 필드만 조회
+    // is_met_at_pickup 컬럼이 없을 수 있으므로, 옵셔널로 포함
     const { data: allParticipants, error: participantsError } = await supabase
       .from("trip_participants")
-      .select("id, pickup_request_id")
+      .select("id, pickup_request_id, is_met_at_pickup")
       .eq("trip_id", tripId);
 
     if (participantsError) {
@@ -1156,7 +1156,7 @@ export async function startTrip(tripId: string) {
           message: updateRequestsError.message,
           details: updateRequestsError.details,
           hint: updateRequestsError.hint,
-          pickupRequestIds,
+          validRequestIds,
           updateData: {
             status: "IN_PROGRESS",
             progress_stage: "STARTED",
