@@ -352,8 +352,7 @@ export function DateDetailDrawer({
                           <Users className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">수용 인원:</span>
                           <span className="font-medium">
-                            {/* 나중에 trip_participants 조인으로 실제 참여자 수 표시 */}
-                            0 / {trip.capacity}
+                            {trip.trip_participants?.length || 0} / {trip.capacity}
                           </span>
                         </div>
                         {trip.is_locked && (

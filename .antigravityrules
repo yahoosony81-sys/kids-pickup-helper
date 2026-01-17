@@ -1,0 +1,13 @@
+동일 이슈를 2회 반복하면, 실제 파일 수정(write) 여부를 먼저 확인하고, 가능하면 런타임 안전 패치(타입/prop 호환)를 적용한 뒤 종료한다.
+
+PowerShell에서는 멀티라인 \ 사용 금지(한 줄 or 따옴표)
+JSX에서 아이콘(또는 대문자 컴포넌트)을 사용할 경우,반드시 해당 컴포넌트의 import 구문을 함께 추가한다.
+.md 파일 생성하면 모두 docs/안에 저장해줘
+layout.tsx에 dynamic='force-dynamic' 추가 (ClerkProvider 사용)- 모든 Clerk 사용 페이지에 dynamic='force-dynamic' 추가,not-found.tsx 커스텀 404 페이지 생성
+
+
+
+npm대신  pnpm을 사용해줘
+나는 비개발자기 때문에 눈높이에 맞춰 설명해줘 .
+pnpm run dev와 같이 서버를 실행시키는 명령어는 너가 직접 실행하지마 사용자에게 해당 명령어를 주고 사용자가 실행하도록 유도해줘
+

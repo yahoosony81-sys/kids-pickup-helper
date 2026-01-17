@@ -40,7 +40,7 @@ export async function createTrip(data: {
     console.group("🚗 [Trip 생성] 시작");
     console.log("1️⃣ 그룹명:", data.title);
     console.log("2️⃣ 출발 예정 시각:", data.scheduled_start_at);
-    
+
     // 1. 인증 확인
     const { userId } = await auth();
     if (!userId) {
@@ -139,7 +139,7 @@ export async function createTrip(data: {
 export async function getMyCompletedTrips() {
   try {
     console.group("🚗 [완료된 Trip 목록 조회] 시작");
-    
+
     // 1. 인증 확인
     const { userId } = await auth();
     if (!userId) {
@@ -231,7 +231,7 @@ export async function getMyCompletedTrips() {
 export async function getMyTripsIncludingTest(status?: string) {
   try {
     console.group("🚗 [Trip 목록 조회 (테스트 포함)] 시작");
-    
+
     // 1. 인증 확인
     const { userId } = await auth();
     if (!userId) {
@@ -267,7 +267,7 @@ export async function getMyTripsIncludingTest(status?: string) {
     // 3. Trip 목록 조회 (테스트 카드 포함)
     let query = supabase
       .from("trips")
-      .select("*")
+      .select("*, trip_participants(id)")
       .eq("provider_profile_id", profile.id)
       // is_test 필터 없음: 테스트 카드도 포함
       .order("created_at", { ascending: false });
@@ -315,7 +315,7 @@ export async function getMyTripsIncludingTest(status?: string) {
 export async function getMyTrips(status?: string) {
   try {
     console.group("🚗 [Trip 목록 조회] 시작");
-    
+
     // 1. 인증 확인
     const { userId } = await auth();
     if (!userId) {
@@ -351,7 +351,7 @@ export async function getMyTrips(status?: string) {
     // 3. Trip 목록 조회
     let query = supabase
       .from("trips")
-      .select("*")
+      .select("*, trip_participants(id)")
       .eq("provider_profile_id", profile.id)
       .eq("is_test", false)  // 테스트 카드 제외 (제공하기 화면용)
       .order("created_at", { ascending: false });
@@ -379,18 +379,18 @@ export async function getMyTrips(status?: string) {
       (trip) => trip.status === "OPEN" || trip.status === "LOCKED"
     );
     const tripIds = openOrLockedTrips.map((trip) => trip.id);
-    
+
     if (tripIds.length > 0) {
       console.log("⏰ 만료 처리 대상 Trip:", { count: tripIds.length });
       const expiredTripIds = await expireTripsIfPast(tripIds, supabase);
-      
+
       // 만료된 Trip의 상태를 업데이트
       for (const trip of trips || []) {
         if (expiredTripIds.includes(trip.id)) {
           trip.status = "EXPIRED";
         }
       }
-      
+
       if (expiredTripIds.length > 0) {
         console.log("✅ 만료 처리 완료:", { count: expiredTripIds.length });
       }
@@ -409,9 +409,9 @@ export async function getMyTrips(status?: string) {
 
         // 그룹 LOCK
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trips.ts:320',message:'Before LOCK update',data:{tripId:trip.id,currentStatus:trip.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'trips.ts:320', message: 'Before LOCK update', data: { tripId: trip.id, currentStatus: trip.status }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run3', hypothesisId: 'D' }) }).catch(() => { });
         // #endregion
-        
+
         const { error: lockError } = await supabase
           .from("trips")
           .update({
@@ -421,7 +421,7 @@ export async function getMyTrips(status?: string) {
           .eq("id", trip.id);
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trips.ts:328',message:'After LOCK update: error check',data:{hasError:!!lockError,errorMessage:lockError?.message,errorCode:lockError?.code,errorFull:lockError?JSON.stringify(lockError,Object.getOwnPropertyNames(lockError)):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'E'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'trips.ts:328', message: 'After LOCK update: error check', data: { hasError: !!lockError, errorMessage: lockError?.message, errorCode: lockError?.code, errorFull: lockError ? JSON.stringify(lockError, Object.getOwnPropertyNames(lockError)) : null }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run3', hypothesisId: 'E' }) }).catch(() => { });
         // #endregion
 
         if (lockError) {
@@ -487,7 +487,7 @@ export async function getTripById(tripId: string) {
   try {
     console.group("🚗 [Trip 조회] 시작");
     console.log("1️⃣ Trip ID:", tripId);
-    
+
     // 1. 인증 확인
     const { userId } = await auth();
     if (!userId) {
@@ -674,6 +674,7 @@ export async function getTripParticipants(tripId: string) {
         requester_profile_id,
         sequence_order,
         created_at,
+        is_met_at_pickup,
         pickup_request:pickup_requests!left(
           id,
           pickup_time,
@@ -704,17 +705,17 @@ export async function getTripParticipants(tripId: string) {
       console.error("에러 키들:", participantsError ? Object.keys(participantsError) : []);
       console.error("Trip ID:", tripId);
       console.error("Profile ID:", profile.id);
-      
+
       // 에러 객체 전체를 JSON으로 직렬화 시도
       try {
         console.error("에러 JSON:", JSON.stringify(participantsError, null, 2));
       } catch (e) {
         console.error("JSON 직렬화 실패:", e);
       }
-      
+
       // 쿼리 결과도 확인
       console.error("참여자 데이터:", participants);
-      
+
       console.groupEnd();
       return {
         success: false,
@@ -1096,7 +1097,7 @@ export async function startTrip(tripId: string) {
     // 중요: 정상 출발한 학생만 업데이트 (CANCELLED 상태인 학생은 제외)
     console.log("3️⃣ 픽업 요청 상태 업데이트 중...");
     const now = new Date().toISOString();
-    
+
     // 정상 출발한 학생의 pickup_request_id만 필터링
     // CANCELLED 상태인 요청은 제외
     const { data: validRequests, error: checkStatusError } = await supabase
