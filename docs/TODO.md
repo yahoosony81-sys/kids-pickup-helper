@@ -1289,11 +1289,11 @@ FROM public.trip_participants
 WHERE pickup_request_id = 'request_xxx';
 -- 예상 결과: 레코드 없음 (삭제됨)
 ```
-- [ ] 쿼리 결과로 취소 상태 확인
-- [ ] 화면에서 취소된 요청 표시 확인
-- [ ] 취소 페이지에서 취소 사유 입력 및 제출 확인
-- [ ] 관련 초대 EXPIRED 처리 확인
-- [ ] 관련 trip_participants 삭제 확인
+- [x] 쿼리 결과로 취소 상태 확인
+- [x] 화면에서 취소된 요청 표시 확인
+- [x] 취소 페이지에서 취소 사유 입력 및 제출 확인
+- [x] 관련 초대 EXPIRED 처리 확인
+- [x] 관련 trip_participants 삭제 확인
 
 ---
 
@@ -1337,3 +1337,61 @@ WHERE pickup_request_id = 'request_xxx';
 - 마이페이지 이력 조회
 - 푸시 알림 연동
 - 결제 시스템 (v2)
+
+---
+
+## 주요 변경 이력
+
+### 2026-01-19: 초대 규칙 변경
+- [x] **변경 사항**: 요청자 여러 PENDING 초대 수신 가능, 제공자 최대 3개 PENDING 초대 제한
+- [x] **DB 변경**: `idx_invitations_unique_pending_requester` 인덱스 제거
+- [x] **코드 변경**: `actions/invitations.ts` (라인 346-394)
+- [x] **문서 업데이트**: 
+  - `docs/PRD.md` - Section 4 "Invitation 규칙"
+  - `docs/DATABASE_SCHEMA.md` - 새로 생성
+  - `docs/INVITATION_RULES_CHANGE.md` - 새로 생성
+  - `actions/invitations.ts` - 파일 헤더 주석
+- [x] **마이그레이션**: `supabase/migrations/20260119141500_drop_unique_pending_requester_index.sql`
+- [x] **테스트**: 1인 2역 테스트 완료
+
+---
+
+## Phase 11: Admin Dashboard (관리자 페이지)
+
+### Task 11.1: DB Schema Updates
+- [x] `provider_documents` 테이블 생성 (provider_profile_id, file_path, status, rejection_reason)
+- [x] `profiles` 테이블에 `school_name`, `role` 컬럼 추가
+- [x] Admin 권한 확인 로직 구현 (Clerk metadata + DB role)
+  - *Note: `supabase/migrations/20260120160000_admin_dashboard_schema.sql` (스키마)*
+  - *Note: `supabase/migrations/20260120160500_grant_admin.sql` (권한 부여)*
+  - **중요: 위 두 SQL 파일을 Supabase SQL Editor에서 직접 실행해야 합니다.**
+
+### Task 11.2: Read-only Dashboard
+- [x] `/app/admin/page.tsx` 생성 (대시보드 메인)
+- [x] 전체 통계 API 구현 (회원 수, 대기 서류, 진행 중 Trip)
+- [x] 학교별 통계 표 구현 (요청 수, 제공자 수, 매칭률)
+
+### Task 11.3: Provider Document Approval
+- [x] `/app/admin/approvals/page.tsx` 생성
+- [x] 서류 목록 조회 및 필터링
+- [x] Lightbox (이미지 확대) 기능 구현
+- [x] 승인/거절 로직 구현 (거절 사유 템플릿 포함)
+- [x] 승인 후 30일 자동 삭제 스케줄러 (뼈대 구현)
+  - *Note: `lib/scheduler/document-cleanup.ts` 및 `app/api/cron/cleanup-documents/route.ts` 구현됨*
+
+### Task 11.4: Emergency Override
+- [x] Trip 상세 페이지에 관리자용 상태 변경 버튼 추가
+  - *Note: `components/admin/AdminTripControls.tsx` 구현 및 `app/(routes)/trips/[tripId]/page.tsx`에 통합*
+- [x] 강제 상태 변경 Server Action 구현 (MATCHED, ARRIVED 등)
+  - *Note: `actions/admin.ts`의 `overrideTripStatus` 함수*
+- [x] 관리자 로그 기록 (선택사항)
+  - *Note: `admin_logs` 테이블 생성 및 `actions/admin.ts`에 로깅 로직 추가*
+  - *Note: `supabase/migrations/20260120162000_create_admin_logs.sql` 생성됨. 수동 적용 필요.*
+
+### Task 11.5: Security & Documentation
+- [x] `/admin` 라우트 보호 (Middleware)
+  - *Note: `middleware.ts`에 `/admin(.*)` 보호 로직 추가*
+- [x] 관리자 매뉴얼 작성 (사용법 안내)
+  - *Note: `docs/ADMIN_MANUAL.md` 작성됨*
+
+

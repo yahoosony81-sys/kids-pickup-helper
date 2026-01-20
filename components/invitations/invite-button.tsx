@@ -96,7 +96,7 @@ export function InviteButton({
           disabled={true}
           variant="secondary"
         >
-          수락 대기 중
+          초대 대기 중
         </Button>
       </div>
     );

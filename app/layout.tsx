@@ -5,6 +5,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import Navbar from "@/components/Navbar";
 import { SyncUserProvider } from "@/components/providers/sync-user-provider";
+import { MetaPixel } from "@/components/meta-pixel";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +36,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          <MetaPixel />
           <SyncUserProvider>
             <Navbar />
             {children}

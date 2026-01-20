@@ -26,6 +26,9 @@ import { getTripReviews } from "@/actions/trip-reviews";
 import { getTripInvitations } from "@/actions/invitations";
 import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
 import { StartTripButton } from "@/components/trips/start-trip-button";
+import { AdminTripControls } from "@/components/admin/AdminTripControls";
+import { createClerkSupabaseClient } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
 import { StudentCard } from "@/components/trips/student-card";
 import { ArrivalPhotoViewer } from "@/components/trip-arrivals/arrival-photo-viewer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,12 +97,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const allInvitations = invitationsResult.success
     ? invitationsResult.data || []
     : [];
-  
+
   // PENDING과 ACCEPTED만 필터링 (활성 초대만)
   const activeInvitations = allInvitations.filter(
     (inv: any) => inv.status === "PENDING" || inv.status === "ACCEPTED"
   );
-  
+
   // PENDING과 ACCEPTED로 분리
   const acceptedInvitations = activeInvitations.filter(
     (inv: any) => inv.status === "ACCEPTED"
@@ -107,7 +110,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const pendingInvitations = activeInvitations.filter(
     (inv: any) => inv.status === "PENDING"
   );
-  
+
   console.log("🔍 [TripDetailPage] 초대 목록 조회 결과:", {
     total: allInvitations.length,
     active: activeInvitations.length,
@@ -115,7 +118,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     pending: pendingInvitations.length,
     statuses: allInvitations.map((inv: any) => inv.status),
   });
-  
+
   // participant와 invitation 매핑 (pickup_request_id 기준)
   const invitationMap = new Map<string, string>();
   acceptedInvitations.forEach((invitation: any) => {
@@ -139,7 +142,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     inviteIds,
     invitationMapSize: invitationMap.size,
   });
-  
+
   let unreadCounts: { [inviteId: string]: number } = {};
   if (inviteIds.length > 0) {
     const unreadCountsResult = await getUnreadCountsForInvites(inviteIds);
@@ -182,7 +185,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
   const participants = participantsResult.data || [];
   const participantCount = participants.length;
-  
+
   // PENDING 초대를 가상의 participant 형태로 변환
   const pendingParticipants = pendingInvitations.map((invitation: any) => {
     const pickupRequest = invitation.pickup_request;
@@ -198,16 +201,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       pickup_request: pickupRequest,
     };
   });
-  
+
   // ACCEPTED 참여자와 PENDING 초대를 합침
   const allParticipants = [...participants, ...pendingParticipants];
   const totalCount = allParticipants.length;
-  
+
   // 활성 초대 수 계산 (ACCEPTED + PENDING)
   const activeInvitationCount = acceptedInvitations.length + pendingInvitations.length;
   // 초대 가능 여부 확인: 활성 초대 수 < capacity && LOCK되지 않음 && EXPIRED 아님
   const canInvite = activeInvitationCount < trip.capacity && !trip.is_locked && trip.status !== "EXPIRED";
-  
+
   const statusInfo = statusConfig[trip.status] || {
     label: trip.status,
     className: "bg-gray-100 text-gray-800",
@@ -225,9 +228,28 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     );
   }
 
+  // 4. 관리자 여부 확인
+  const { userId } = await auth();
+  let isAdmin = false;
+  if (userId) {
+    const supabase = createClerkSupabaseClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("clerk_user_id", userId)
+      .single();
+    isAdmin = profile?.role === 'ADMIN';
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <PageNavActions fallbackHref="/trips" />
+
+      {isAdmin && (
+        <div className="mb-6">
+          <AdminTripControls tripId={tripId} currentStatus={trip.status} />
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Trip 정보 카드 */}
@@ -457,7 +479,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   </span>
                 </div>
               )}
-              
+
               {/* Phase 8 원칙 설명 */}
               <div className="pt-2 border-t border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300">
@@ -516,11 +538,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                               {[1, 2, 3, 4, 5].map((star) => (
                                 <Star
                                   key={star}
-                                  className={`h-4 w-4 ${
-                                    star <= review.rating
+                                  className={`h-4 w-4 ${star <= review.rating
                                       ? "fill-yellow-400 text-yellow-400"
                                       : "text-gray-300"
-                                  }`}
+                                    }`}
                                 />
                               ))}
                               <span className="ml-2 text-sm font-medium">

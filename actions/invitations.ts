@@ -16,8 +16,9 @@
  * - 초대장 생성 시 status는 반드시 'PENDING'으로 저장 (중요)
  * - 'REQUESTED' 상태는 초대장에서 사용하지 않음 (픽업 요청의 상태만 사용)
  * - PRD Section 4 규칙 준수: 서버에서 초대 제약 강제 검증
- *   - 요청자는 동시에 PENDING 초대 1개만 허용
- *   - 제공자는 수락된 인원이 3명 미만일 때만 초대 가능
+ *   - 요청자는 여러 제공자로부터 동시에 여러 PENDING 초대를 받을 수 있음 (2026-01-19 변경)
+ *   - 제공자는 동시에 최대 3개의 PENDING 초대만 보낼 수 있음 (2026-01-19 추가)
+ *   - 제공자는 수락된 인원이 3명 미만일 때만 초대 가능 (Trip capacity 검증)
  *   - Trip이 is_locked = false인지 확인
  * - 만료된 초대 자동 EXPIRED 처리
  * - Supabase DB 작업 (INSERT, SELECT, UPDATE)
@@ -31,6 +32,7 @@
 "use server";
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { createClient } from "@supabase/supabase-js";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getSlotKey } from "@/lib/utils/slot";
@@ -49,7 +51,7 @@ async function enforceTimeRules(
   supabase?: ReturnType<typeof createClerkSupabaseClient>
 ) {
   const client = supabase || createClerkSupabaseClient();
-  
+
   const { data: trip, error: tripError } = await client
     .from("trips")
     .select("scheduled_start_at")
@@ -68,7 +70,7 @@ async function enforceTimeRules(
   // 출발 1시간 전이면 PENDING 초대를 EXPIRED 처리
   if (now >= oneHourBefore) {
     console.log("⏰ 출발 1시간 전 도달, PENDING 초대 EXPIRED 처리 시작");
-    
+
     const { data: pendingInvitations, error: pendingError } = await client
       .from("invitations")
       .select("id")
@@ -320,11 +322,11 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
     if (trip.scheduled_start_at && pickupRequest.pickup_time) {
       const tripDate = new Date(trip.scheduled_start_at);
       const requestDate = new Date(pickupRequest.pickup_time);
-      
+
       // 날짜만 비교 (YYYY-MM-DD)
       const tripDateStr = tripDate.toISOString().split("T")[0];
       const requestDateStr = requestDate.toISOString().split("T")[0];
-      
+
       if (tripDateStr !== requestDateStr) {
         console.error("❌ 날짜 불일치:", {
           tripDate: tripDateStr,
@@ -342,37 +344,55 @@ export async function sendInvitation(tripId: string, pickupRequestId: string) {
       });
     }
 
-    // 8. 요청자 PENDING 초대 1개 제한 검증
-    console.log("🔍 검증 시작 - 요청자 ID:", pickupRequest.requester_profile_id);
-    console.log("🔍 검증 시작 - 픽업 요청 ID:", pickupRequestId);
-    const { data: existingInvitation, error: invitationCheckError } = await supabase
+    // 8. [규칙 변경] 요청자 PENDING 초대 제한 제거
+    // 이전 규칙: 요청자는 동시에 하나의 PENDING 초대만 받을 수 있음
+    // 변경 규칙: 요청자는 여러 제공자로부터 초대를 받을 수 있음 (선택권 보장)
+    // 따라서 기존의 중복 체크 로직(requester_profile_id 기준)은 삭제하고,
+    // 대신 "동일한 픽업 요청(pickup_request_id)에 대해 동일한 제공자(provider_profile_id)가 중복 초대를 보내는 것"만 방지합니다.
+
+    const { data: duplicateCheck, error: duplicateError } = await supabase
       .from("invitations")
       .select("id")
       .eq("pickup_request_id", pickupRequestId)
+      .eq("provider_profile_id", providerProfile.id)
       .eq("status", "PENDING")
       .maybeSingle();
-    console.log("🔍 검색 결과 (existingInvitation):", existingInvitation);
 
-    if (invitationCheckError) {
-      console.error("❌ 초대 조회 실패:", invitationCheckError);
-      console.groupEnd();
-      return {
-        success: false,
-        error: "초대 상태를 확인하는데 실패했습니다. 다시 시도해주세요.",
-      };
+    if (duplicateError) {
+      console.error("❌ 중복 초대 확인 실패:", duplicateError);
+      return { success: false, error: "중복 초대 확인 중 오류가 발생했습니다." };
     }
 
-    if (existingInvitation) {
-      console.error("❌ 요청자가 이미 PENDING 초대를 보유:", {
-        existingInvitationId: existingInvitation.id,
-      });
-      console.groupEnd();
+    if (duplicateCheck) {
+      console.error("❌ 이미 동일한 요청에 초대를 보냄");
+      return { success: false, error: "이미 이 요청에 초대를 보냈습니다." };
+    }
+    console.log("✅ 중복 초대 검증 완료 (동일 제공자 중복 없음)");
+
+    // 8-1. [신규 규칙] 제공자 PENDING 초대 3개 제한
+    // 제공자가 무분별하게 많은 초대를 보내는 것을 방지하기 위해
+    // "현재 대기 중인(PENDING) 초대"의 개수를 3개로 제한합니다.
+    const { count: providerPendingCount, error: countError } = await supabase
+      .from("invitations")
+      .select("id", { count: "exact", head: true })
+      .eq("provider_profile_id", providerProfile.id)
+      .eq("status", "PENDING");
+
+    if (countError) {
+      console.error("❌ 제공자 초대 수 확인 실패:", countError);
+      return { success: false, error: "초대 가능 횟수를 확인하는데 실패했습니다." };
+    }
+
+    console.log("📊 제공자 현재 PENDING 초대 수:", providerPendingCount);
+
+    if ((providerPendingCount || 0) >= 3) {
+      console.error("❌ 제공자 초대 한도 초과 (최대 3개)");
       return {
         success: false,
-        error: "이 요청자는 이미 다른 초대를 대기 중입니다.",
+        error: "동시에 보낼 수 있는 초대(대기 중)는 최대 3개입니다. 기존 초대가 수락되거나 거절될 때까지 기다려주세요."
       };
     }
-    console.log("✅ 요청자 PENDING 초대 1개 제한 검증 완료");
+    console.log("✅ 제공자 초대 한도 검증 완료");
 
     // 9. 그룹 인원 제한 검증: (PENDING + ACCEPTED) 합계 <= 3 확인
     const { data: activeInvitations, error: activeInvitationsError } = await supabase
@@ -604,7 +624,7 @@ export async function getTripInvitations(tripId: string, status?: string) {
       console.log("📋 상태 필터링 적용:", { status });
     }
     // 상태 필터가 없으면 모든 상태 조회 (초대 페이지에서 사용)
-    
+
     console.log("🔍 쿼리 실행 전 - trip_id:", tripId);
 
     // 초대 상태별 정렬 (PENDING → ACCEPTED → REJECTED → EXPIRED)
@@ -622,7 +642,7 @@ export async function getTripInvitations(tripId: string, status?: string) {
         data: [],
       };
     }
-    
+
     console.log("🔍 초대 목록 조회 결과 (원본):", {
       count: invitations?.length || 0,
       invitations: invitations?.map((inv: any) => ({
@@ -1015,7 +1035,7 @@ export async function getInvitationById(invitationId: string) {
     const invitationRequesterId = invitation.requester_profile_id;
     const invitationProviderId = invitation.provider_profile_id;
     const currentProfileId = requesterProfile.id;
-    
+
     console.log("🔍 소유자 확인 디버깅:", {
       invitationRequesterId,
       invitationProviderId,
@@ -1029,7 +1049,7 @@ export async function getInvitationById(invitationId: string) {
       isRequester: invitationRequesterId === currentProfileId,
       isProvider: invitationProviderId === currentProfileId,
     });
-    
+
     // null/undefined 체크
     if (!invitationRequesterId || !invitationProviderId || !currentProfileId) {
       console.error("❌ 필수 ID 값이 없음:", {
@@ -1047,16 +1067,16 @@ export async function getInvitationById(invitationId: string) {
         data: null,
       };
     }
-    
+
     // 문자열로 변환하여 비교 (UUID는 문자열이므로)
     const invitationRequesterIdStr = String(invitationRequesterId).trim();
     const invitationProviderIdStr = String(invitationProviderId).trim();
     const profileIdStr = String(currentProfileId).trim();
-    
+
     // 요청자 또는 제공자 중 하나라도 일치하면 접근 허용
     const isRequester = invitationRequesterIdStr === profileIdStr;
     const isProvider = invitationProviderIdStr === profileIdStr;
-    
+
     if (!isRequester && !isProvider) {
       console.error("❌ 초대 소유자가 아님:", {
         invitationRequesterId: invitationRequesterIdStr,
@@ -1208,7 +1228,7 @@ export async function acceptInvitation(invitationId: string) {
           requestId: updatedRequest.id,
           status: updatedRequest.status,
         });
-        
+
         // EXPIRED 상태면 초대 수락 불가
         if (updatedRequest.status === "EXPIRED") {
           console.error("❌ Request가 EXPIRED 상태:", { status: updatedRequest.status });
@@ -1225,7 +1245,7 @@ export async function acceptInvitation(invitationId: string) {
     const { expired, trip: updatedTrip } = await expireTripIfPast(invitation.trip_id, supabase);
     if (expired && updatedTrip) {
       console.log("⏰ Trip 만료 처리 완료:", { tripId: updatedTrip.id, status: updatedTrip.status });
-      
+
       // EXPIRED 상태면 초대 수락 불가
       if (updatedTrip.status === "EXPIRED") {
         console.error("❌ Trip이 EXPIRED 상태:", { status: updatedTrip.status });

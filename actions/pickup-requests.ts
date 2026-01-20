@@ -22,6 +22,7 @@
 
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -298,7 +299,7 @@ export async function getPickupRequestById(pickupRequestId: string) {
 export async function getAvailablePickupRequests() {
   try {
     console.group("📋 [요청자 리스트 조회] 시작");
-    
+
     // 1. 인증 확인
     const { userId } = await auth();
     if (!userId) {
@@ -375,13 +376,50 @@ export async function getAvailablePickupRequests() {
 
     // 4. 각 픽업 요청에 대해 PENDING 초대 존재 여부 확인 (pickup_request_id 기준)
     // 수정: requester_profile_id가 아닌 pickup_request_id 기준으로 확인
-    // 이렇게 하면 특정 픽업 요청에 대한 초대만 확인할 수 있습니다
+    // 중요: RLS로 인해 다른 제공자가 보낸 초대는 보이지 않을 수 있음
+    // 따라서 Service Role Key를 사용하여 모든 초대를 확인해야 함
     const requestIds = (pickupRequests || []).map((req) => req.id);
-    const { data: pendingInvitations, error: pendingCheckError } = await supabase
-      .from("invitations")
-      .select("pickup_request_id")
-      .in("pickup_request_id", requestIds)
-      .eq("status", "PENDING");
+
+    let pendingInvitations: { pickup_request_id: string }[] | null = null;
+    let pendingCheckError = null;
+
+    // Service Role Key가 있는 경우 (Admin 권한으로 조회)
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log("🔑 Service Role Key 존재 여부:", hasServiceKey);
+
+    if (hasServiceKey) {
+      const adminSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      const { data, error } = await adminSupabase
+        .from("invitations")
+        .select("pickup_request_id")
+        .in("pickup_request_id", requestIds)
+        .eq("status", "PENDING");
+
+      console.log("🔍 Admin Client 조회 결과:", { count: data?.length, error: error?.message });
+      pendingInvitations = data;
+      pendingCheckError = error;
+    } else {
+      // Service Role Key가 없는 경우 (기존 로직 - RLS 제한 있음)
+      console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 RLS 제한된 상태로 초대를 조회합니다.");
+      const { data, error } = await supabase
+        .from("invitations")
+        .select("pickup_request_id")
+        .in("pickup_request_id", requestIds)
+        .eq("status", "PENDING");
+
+      pendingInvitations = data;
+      pendingCheckError = error;
+    }
 
     if (pendingCheckError) {
       console.error("❌ PENDING 초대 조회 실패:", pendingCheckError);
@@ -409,7 +447,7 @@ export async function getAvailablePickupRequests() {
       const date = new Date(request.pickup_time);
       const hours = date.getHours();
       const minutes = date.getMinutes();
-      const timeLabel = hours < 12 
+      const timeLabel = hours < 12
         ? `오전 ${hours === 0 ? 12 : hours}시${minutes > 0 ? ` ${minutes}분` : ""}`
         : `오후 ${hours === 12 ? 12 : hours - 12}시${minutes > 0 ? ` ${minutes}분` : ""}`;
 
@@ -649,14 +687,14 @@ export async function cancelPickupRequest(
     ) {
       console.error("❌ 취소 불가능한 상태:", { status: pickupRequest.status });
       console.groupEnd();
-      
+
       if (pickupRequest.status === "CANCELLED") {
         return {
           success: false,
           error: "이미 취소된 픽업 요청입니다.",
         };
       }
-      
+
       return {
         success: false,
         error: "이미 진행 중이거나 완료된 픽업 요청은 취소할 수 없습니다.",
