@@ -1,6 +1,6 @@
 "use client";
 
-import { SignedOut, SignInButton, SignedIn, useUser } from "@clerk/nextjs";
+import { SignedOut, SignInButton, SignedIn, useUser, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 import React from "react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const ProfileButton = () => {
   const { user } = useUser();
-  
+
   if (!user) return null;
-  
+
   return (
     <Link href="/my">
       <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
@@ -44,7 +44,12 @@ const Navbar = () => {
           </SignInButton>
         </SignedOut>
         <SignedIn>
-          <ProfileButton />
+          <div className="flex items-center gap-4">
+            <SignOutButton>
+              <Button variant="outline" size="sm">로그아웃</Button>
+            </SignOutButton>
+            <ProfileButton />
+          </div>
         </SignedIn>
       </div>
     </header>
