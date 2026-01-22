@@ -1,6 +1,6 @@
 "use client";
 
-import { SignedOut, SignInButton, SignedIn, useUser, SignOutButton } from "@clerk/nextjs";
+import { SignedOut, SignInButton, SignedIn, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import React from "react";
 import { Button } from "@/components/ui/button";
@@ -25,32 +25,23 @@ const ProfileButton = () => {
 
 const Navbar = () => {
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
-      <div className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
-        <Link href="/" className="text-2xl font-bold">
-          우리아이 픽업이모
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 safe-area-top">
+      <div className="flex justify-between items-center px-4 h-14 max-w-md mx-auto">
+        <Link href="/" className="flex items-center">
+          <span className="text-lg font-bold text-amber-600 whitespace-nowrap">
+            우리아이 픽업이모
+          </span>
         </Link>
-        <div className="flex gap-4 items-center">
-          <SignedIn>
-            <Link href="/pickup-requests">
-              <Button variant="ghost">픽업 요청</Button>
-            </Link>
-            <Link href="/trips">
-              <Button variant="ghost">픽업제공</Button>
-            </Link>
-          </SignedIn>
+        <div className="flex gap-2 items-center">
           <SignedOut>
             <SignInButton mode="modal">
-              <Button>로그인</Button>
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
+                로그인
+              </Button>
             </SignInButton>
           </SignedOut>
           <SignedIn>
-            <div className="flex items-center gap-4">
-              <SignOutButton>
-                <Button variant="outline" size="sm">로그아웃</Button>
-              </SignOutButton>
-              <ProfileButton />
-            </div>
+            <ProfileButton />
           </SignedIn>
         </div>
       </div>
