@@ -176,7 +176,6 @@ export default async function MessageThreadPage({
             <MessageList
               messages={messages}
               currentProfileId={currentProfile.id}
-              providerProfileId={invitation.provider_profile_id}
             />
           </CardContent>
         </Card>

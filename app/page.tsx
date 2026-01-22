@@ -1,41 +1,48 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { RiSupabaseFill } from "react-icons/ri";
+"use client"
+
+import { HeadlineSection } from "@/components/headline-section"
+import { ServiceCardSection } from "@/components/service-card-section"
+import { MapSection } from "@/components/map-section"
+import { SafetySection } from "@/components/safety-section"
+import { HowToUseSection } from "@/components/how-to-use-section"
+import { FAQ } from "@/components/faq"
 
 export default function Home() {
   return (
-    <main className="min-h-[calc(100vh-80px)] flex items-center px-8 py-16 lg:py-24">
-      <section className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-start lg:items-center">
-        {/* 좌측: 환영 메시지 */}
-        <div className="flex flex-col gap-8">
-          <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
-            SaaS 앱 템플릿에 오신 것을 환영합니다
-          </h1>
-          <p className="text-xl lg:text-2xl text-gray-600 dark:text-gray-400 leading-relaxed">
-            Next.js, Shadcn, Clerk, Supabase, TailwindCSS로 구동되는 완전한
-            기능의 템플릿으로 다음 프로젝트를 시작하세요.
-          </p>
-        </div>
+    <div className="overflow-y-auto">
+      <main>
+        {/* 배경 이미지 섹션: 히어로 + 서비스 카드 */}
+        <section
+          className="relative bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('/saas템플릿사진.png')`,
+          }}
+        >
+          {/* SECTION 1: 불안 공감 헤드라인 */}
+          <div className="relative z-10">
+            <HeadlineSection />
+          </div>
 
-        {/* 우측: 버튼 두 개 세로 정렬 */}
-        <div className="flex flex-col gap-6">
-          <Link href="/storage-test" className="w-full">
-            <Button className="w-full h-28 flex items-center justify-center gap-4 text-xl shadow-lg hover:shadow-xl transition-shadow">
-              <RiSupabaseFill className="w-8 h-8" />
-              <span>Storage 파일 업로드 테스트</span>
-            </Button>
-          </Link>
-          <Link href="/auth-test" className="w-full">
-            <Button
-              className="w-full h-28 flex items-center justify-center gap-4 text-xl shadow-lg hover:shadow-xl transition-shadow"
-              variant="outline"
-            >
-              <RiSupabaseFill className="w-8 h-8" />
-              <span>Clerk + Supabase 인증 연동</span>
-            </Button>
-          </Link>
-        </div>
-      </section>
-    </main>
-  );
+          {/* SECTION 2: 서비스 카드 (행동 선택) */}
+          <div className="relative z-10 pb-6">
+            <ServiceCardSection />
+          </div>
+        </section>
+
+        <section className="bg-amber-50">
+          {/* SECTION 3: 지도 예시 */}
+          <MapSection />
+
+          {/* SECTION 4: 안전 강조 섹션 */}
+          <SafetySection />
+
+          {/* SECTION 5: 서비스 이용 방법 */}
+          <HowToUseSection />
+
+          {/* SECTION 6: FAQ */}
+          <FAQ />
+        </section>
+      </main>
+    </div>
+  )
 }

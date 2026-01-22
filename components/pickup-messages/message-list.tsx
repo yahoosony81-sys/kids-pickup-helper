@@ -24,13 +24,11 @@ interface Message {
 interface MessageListProps {
   messages: Message[];
   currentProfileId: string;
-  providerProfileId: string;
 }
 
 export function MessageList({
   messages,
   currentProfileId,
-  providerProfileId,
 }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -48,7 +46,6 @@ export function MessageList({
 
         // PROVIDER는 왼쪽, REQUESTER는 오른쪽 정렬
         // 또는 현재 사용자 메시지는 오른쪽, 상대방 메시지는 왼쪽
-        const alignClass = isCurrentUser ? "ml-auto" : "mr-auto";
         const bgClass = isCurrentUser
           ? "bg-blue-500 text-white"
           : "bg-muted text-foreground";
