@@ -40,16 +40,15 @@ export interface CalendarViewProps {
 /**
  * 마이페이지 달력 뷰 컴포넌트
  */
-export function CalendarView({ 
-  mode, 
+export function CalendarView({
+  mode,
   initialMonth,
-  initialSelectedDate 
+  initialSelectedDate
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState<Date>(initialMonth || new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(initialSelectedDate || null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [calendarStats, setCalendarStats] = useState<CalendarStat[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // 초기 선택된 날짜가 있으면 Drawer 자동 열기
   useEffect(() => {
@@ -61,9 +60,9 @@ export function CalendarView({
   // 현재 월의 집계 데이터 로드
   useEffect(() => {
     const loadStats = async () => {
-      setIsLoadingStats(true);
+      // setIsLoadingStats(true);
       const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
-      
+
       let result;
       if (mode === "requests") {
         result = await getMyRequestCalendarStats(monthStr);
@@ -74,7 +73,7 @@ export function CalendarView({
       if (result.success) {
         setCalendarStats(result.data);
       }
-      setIsLoadingStats(false);
+      // setIsLoadingStats(false);
     };
     loadStats();
   }, [currentMonth, mode]);

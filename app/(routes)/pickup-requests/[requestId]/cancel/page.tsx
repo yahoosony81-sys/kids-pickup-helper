@@ -23,7 +23,6 @@
 import { getPickupRequestById } from "@/actions/pickup-requests";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, X } from "lucide-react";
 import { CancelForm } from "@/components/pickup-requests/cancel-form";

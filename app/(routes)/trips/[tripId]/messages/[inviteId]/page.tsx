@@ -21,13 +21,12 @@
  * - @/components/ui/textarea: 텍스트 영역 컴포넌트
  */
 
-import { getMessagesByInvite, sendMessageToInvite } from "@/actions/pickup-messages";
+import { getMessagesByInvite } from "@/actions/pickup-messages";
 import { getInvitationById } from "@/actions/invitations";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { MessageForm } from "@/components/pickup-messages/message-form";
 import { MessageList } from "@/components/pickup-messages/message-list";
 import { MarkReadOnMount } from "@/components/pickup-messages/mark-read-on-mount";
@@ -188,7 +187,7 @@ export default async function MessageThreadPage({
             <CardTitle>메시지 작성</CardTitle>
           </CardHeader>
           <CardContent>
-            <MessageForm inviteId={inviteId} tripId={tripId} />
+            <MessageForm inviteId={inviteId} />
           </CardContent>
         </Card>
       </div>

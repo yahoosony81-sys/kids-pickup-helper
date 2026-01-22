@@ -49,12 +49,10 @@ interface ArrivalPhoto {
 
 interface ArrivalPhotoViewerProps {
   tripId: string;
-  viewerRole: "provider" | "requester";
 }
 
 export function ArrivalPhotoViewer({
   tripId,
-  viewerRole,
 }: ArrivalPhotoViewerProps) {
   const [arrivals, setArrivals] = useState<ArrivalPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);

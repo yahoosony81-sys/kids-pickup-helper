@@ -17,7 +17,6 @@ import { getInvitationsForRequest } from "@/actions/invitations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InvitationCard } from "@/components/invitations/invitation-card";
 import { PickupProgressTimeline } from "@/components/my/pickup-progress-timeline";
-import { ArrivalConfirmation } from "@/components/my/arrival-confirmation";
 import { CanceledBox } from "@/components/my/canceled-box";
 import { MapPin } from "lucide-react";
 import { formatDateTime, formatDateTimeShort } from "@/lib/utils";
@@ -203,7 +202,6 @@ export async function OngoingRequestsTab({
                         <div className="pt-3 border-t">
                           <PickupProgressTimeline
                             progressStage={request.progress_stage}
-                            showConfirmButton={request.progress_stage === "ARRIVED"}
                           />
                           {/* 도착 확인 UI (ARRIVED 상태에서만 표시) */}
                           {request.progress_stage === "ARRIVED" && (

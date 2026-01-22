@@ -72,7 +72,7 @@ export function ReviewForm({
         <FormField
           control={form.control}
           name="rating"
-          render={({ field }) => (
+          render={() => (
             <FormItem>
               <FormLabel>평점 *</FormLabel>
               <FormControl>
@@ -85,11 +85,10 @@ export function ReviewForm({
                       className="focus:outline-none"
                     >
                       <Star
-                        className={`h-8 w-8 transition-colors ${
-                          star <= currentRating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300 hover:text-yellow-300"
-                        }`}
+                        className={`h-8 w-8 transition-colors ${star <= currentRating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-300 hover:text-yellow-300"
+                          }`}
                       />
                     </button>
                   ))}
@@ -129,8 +128,6 @@ export function ReviewForm({
         <div>
           <SubmitReviewButton
             pickupRequestId={pickupRequestId}
-            tripId={tripId}
-            providerProfileId={providerProfileId}
             formData={form.getValues()}
             onValidate={() => form.trigger()}
             isValid={form.formState.isValid}

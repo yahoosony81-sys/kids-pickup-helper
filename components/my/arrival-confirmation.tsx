@@ -17,16 +17,15 @@ import { useEffect, useState } from "react";
 import { getMyArrivalPhotos } from "@/actions/trip-arrivals";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 import { Star, Image as ImageIcon } from "lucide-react";
 
 interface ArrivalConfirmationProps {
   pickupRequestId: string;
-  tripId?: string;
 }
 
 export function ArrivalConfirmation({
   pickupRequestId,
-  tripId,
 }: ArrivalConfirmationProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,9 +71,11 @@ export function ArrivalConfirmation({
         </div>
       ) : photoUrl ? (
         <div className="space-y-2">
-          <img
+          <Image
             src={photoUrl}
             alt="도착 사진"
+            width={500}
+            height={300}
             className="w-full rounded-lg border border-gray-200 dark:border-gray-800"
           />
         </div>

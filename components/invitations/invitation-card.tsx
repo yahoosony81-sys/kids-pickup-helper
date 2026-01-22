@@ -26,6 +26,7 @@ import { useState } from "react";
 import { acceptInvitation } from "@/actions/invitations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import { CheckCircle2, Clock, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -141,9 +142,11 @@ export function InvitationCard({ invitation, requestId }: InvitationCardProps) {
           {/* 제공자 프로필 사진 */}
           <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
             {invitation.provider.imageUrl ? (
-              <img
+              <Image
                 src={invitation.provider.imageUrl}
                 alt={invitation.provider.name}
+                width={64}
+                height={64}
                 className="h-full w-full object-cover"
               />
             ) : (

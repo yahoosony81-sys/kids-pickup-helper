@@ -153,9 +153,9 @@ export function PickupCalendar({
         components={{
           Chevron: ({ orientation, className, ...props }) => {
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pickup-calendar.tsx:152',message:'Chevron render',data:{orientation,hasClassName:!!className,propsKeys:Object.keys(props)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'pickup-calendar.tsx:152', message: 'Chevron render', data: { orientation, hasClassName: !!className, propsKeys: Object.keys(props) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
             // #endregion
-            
+
             // Chevron은 단순히 아이콘만 렌더링 (DayPicker가 이미 button을 렌더링함)
             if (orientation === "left") {
               return <ChevronLeft className={cn("h-4 w-4", className)} {...props} />;
@@ -164,29 +164,29 @@ export function PickupCalendar({
           },
           Day: (props) => {
             const { day, modifiers: dayModifiers, ...restProps } = props as any;
-          
+
             // ✅ day가 { date: Date } 이든 Date 이든 모두 대응
             const date: Date = (day?.date ?? day) as Date;
-          
+
             const showBadge = shouldShowBadge(date);
             const count = getDateCount(date);
-          
+
             // td에 적용할 props (role, className 등)
             const { className: tdClassName, ...tdProps } = restProps;
-          
+
             // button에 적용할 props
             const buttonClassName = cn(
               "h-9 w-9 p-0 font-normal aria-selected:opacity-100 relative",
               props.className
             );
-          
+
             // 날짜 클릭 핸들러 (비활성화된 날짜는 클릭 무시)
             const handleButtonClick = () => {
               if (!dayModifiers?.disabled) {
                 handleDateClick(date);
               }
             };
-          
+
             return (
               <td {...tdProps} role="gridcell" className={tdClassName}>
                 <button
@@ -194,7 +194,6 @@ export function PickupCalendar({
                   onClick={handleButtonClick}
                   onKeyDown={restProps.onKeyDown}
                   disabled={!!dayModifiers?.disabled}
-                  aria-selected={restProps["aria-selected"]}
                   aria-label={restProps["aria-label"]}
                   data-day={restProps["data-day"]}
                   data-month={restProps["data-month"]}
@@ -215,7 +214,7 @@ export function PickupCalendar({
               </td>
             );
           },
-          
+
         }}
         classNames={{
           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",

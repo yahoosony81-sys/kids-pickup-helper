@@ -31,11 +31,10 @@ interface PickupProgressTimelineProps {
 
 export function PickupProgressTimeline({
   progressStage,
-  showConfirmButton = false,
 }: PickupProgressTimelineProps) {
   // 기본값은 MATCHED
   const stage = progressStage || "MATCHED";
-  
+
   // 경우1: STARTED 상태일 때 활성화/비활성화 상태
   const [startedActive, setStartedActive] = useState(true);
   const [movingActive, setMovingActive] = useState(false);

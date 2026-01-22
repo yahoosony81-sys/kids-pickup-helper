@@ -22,14 +22,8 @@ export function MetaPixel() {
     const { user, isLoaded } = useUser();
     const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
-    // 픽셀 ID가 없으면 렌더링하지 않음
-    if (!pixelId) {
-        console.warn('Meta Pixel ID가 설정되지 않았습니다. NEXT_PUBLIC_META_PIXEL_ID 환경변수를 확인하세요.');
-        return null;
-    }
-
     useEffect(() => {
-        if (!isLoaded) return;
+        if (!pixelId || !isLoaded) return;
 
         // 사용자 정보가 있으면 고급 매칭과 함께 초기화
         if (user) {
@@ -49,6 +43,11 @@ export function MetaPixel() {
         // PageView 이벤트 추적
         trackPageView();
     }, [isLoaded, user, pixelId]);
+
+    // 픽셀 ID가 없으면 렌더링하지 않음
+    if (!pixelId) {
+        return null;
+    }
 
     return (
         <>

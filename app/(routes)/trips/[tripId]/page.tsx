@@ -21,7 +21,7 @@
  */
 
 import { getTripById, getTripParticipants } from "@/actions/trips";
-import { getTripArrivals, checkArrivalPhoto } from "@/actions/trip-arrivals";
+import { checkArrivalPhoto } from "@/actions/trip-arrivals";
 import { getTripReviews } from "@/actions/trip-reviews";
 import { getTripInvitations } from "@/actions/invitations";
 import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
@@ -451,7 +451,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ArrivalPhotoViewer tripId={tripId} viewerRole="provider" />
+              <ArrivalPhotoViewer tripId={tripId} />
             </CardContent>
           </Card>
         )}
@@ -539,8 +539,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                 <Star
                                   key={star}
                                   className={`h-4 w-4 ${star <= review.rating
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-gray-300"
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-gray-300"
                                     }`}
                                 />
                               ))}

@@ -24,8 +24,6 @@ import type { TripReviewFormData } from "@/lib/validations/trip-review";
 
 interface SubmitReviewButtonProps {
   pickupRequestId: string;
-  tripId: string;
-  providerProfileId: string;
   formData: TripReviewFormData;
   onValidate?: () => Promise<boolean>;
   isValid?: boolean;
@@ -33,8 +31,6 @@ interface SubmitReviewButtonProps {
 
 export function SubmitReviewButton({
   pickupRequestId,
-  tripId,
-  providerProfileId,
   formData,
   onValidate,
   isValid,

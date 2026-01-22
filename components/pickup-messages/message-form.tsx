@@ -24,10 +24,9 @@ import { useRouter } from "next/navigation";
 
 interface MessageFormProps {
   inviteId: string;
-  tripId: string;
 }
 
-export function MessageForm({ inviteId, tripId }: MessageFormProps) {
+export function MessageForm({ inviteId }: MessageFormProps) {
   const [body, setBody] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +34,7 @@ export function MessageForm({ inviteId, tripId }: MessageFormProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!body.trim()) {
       setError("메시지를 입력해주세요.");
       return;

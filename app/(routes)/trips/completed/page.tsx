@@ -24,7 +24,7 @@ import { getMyCompletedTrips } from "@/actions/trips";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, Lock, Users, UserPlus } from "lucide-react";
+import { Plus, Lock, Users } from "lucide-react";
 import { formatDateTime, formatDateTimeShort } from "@/lib/utils";
 
 // 상태별 배지 스타일

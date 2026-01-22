@@ -61,18 +61,17 @@ export default function NewTripPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [calendarStats, setCalendarStats] = useState<CalendarStat[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // 현재 월의 집계 데이터 로드
   useEffect(() => {
     const loadStats = async () => {
-      setIsLoadingStats(true);
+      // setIsLoadingStats(true);
       const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
       const result = await getCalendarStatsForProvideCreate(monthStr);
       if (result.success) {
         setCalendarStats(result.data);
       }
-      setIsLoadingStats(false);
+      // setIsLoadingStats(false);
     };
     loadStats();
   }, [currentMonth]);
@@ -137,7 +136,7 @@ export default function NewTripPage() {
         const [datePart, timePart] = data.scheduled_start_at.split("T");
         const [year, month, day] = datePart.split("-").map(Number);
         const [hour, minute] = timePart.split(":").map(Number);
-        
+
         // 한국 시간대(UTC+9)를 UTC로 변환
         // 한국 시간 = UTC + 9시간이므로, UTC = 한국 시간 - 9시간
         // Date.UTC를 사용하여 UTC 시간을 직접 생성 (hour - 9가 음수여도 자동으로 전날로 처리됨)
@@ -201,7 +200,7 @@ export default function NewTripPage() {
               <FormField
                 control={form.control}
                 name="scheduled_start_at"
-                render={({ field }) => (
+                render={() => (
                   <FormItem>
                     <FormLabel>출발 예정 시각</FormLabel>
                     <FormControl>

@@ -59,18 +59,17 @@ export default function NewPickupRequestPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [calendarStats, setCalendarStats] = useState<CalendarStat[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // 현재 월의 집계 데이터 로드
   useEffect(() => {
     const loadStats = async () => {
-      setIsLoadingStats(true);
+      // setIsLoadingStats(true);
       const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
       const result = await getCalendarStatsForRequestCreate(monthStr);
       if (result.success) {
         setCalendarStats(result.data);
       }
-      setIsLoadingStats(false);
+      // setIsLoadingStats(false);
     };
     loadStats();
   }, [currentMonth]);
@@ -151,7 +150,7 @@ export default function NewPickupRequestPage() {
               <FormField
                 control={form.control}
                 name="pickup_time"
-                render={({ field }) => (
+                render={() => (
                   <FormItem>
                     <FormLabel>픽업 시간</FormLabel>
                     <FormControl>
@@ -202,10 +201,10 @@ export default function NewPickupRequestPage() {
                         value={
                           form.watch("origin_lat") && form.watch("origin_lng")
                             ? {
-                                text: field.value,
-                                lat: form.watch("origin_lat"),
-                                lng: form.watch("origin_lng"),
-                              }
+                              text: field.value,
+                              lat: form.watch("origin_lat"),
+                              lng: form.watch("origin_lng"),
+                            }
                             : null
                         }
                         onChange={(value) => {
@@ -233,12 +232,12 @@ export default function NewPickupRequestPage() {
                         label="목적지"
                         value={
                           form.watch("destination_lat") &&
-                          form.watch("destination_lng")
+                            form.watch("destination_lng")
                             ? {
-                                text: field.value,
-                                lat: form.watch("destination_lat"),
-                                lng: form.watch("destination_lng"),
-                              }
+                              text: field.value,
+                              lat: form.watch("destination_lat"),
+                              lng: form.watch("destination_lng"),
+                            }
                             : null
                         }
                         onChange={(value) => {

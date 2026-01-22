@@ -42,21 +42,21 @@ export default async function MyPage({ searchParams }: MyPageProps) {
   const requestsResult = await getMyPickupRequests();
   const ongoingRequests = requestsResult.success
     ? (requestsResult.data || []).filter(
-        (req: any) =>
-          !["ARRIVED", "COMPLETED", "CANCELLED", "EXPIRED"].includes(req.status)
-      )
+      (req: any) =>
+        !["ARRIVED", "COMPLETED", "CANCELLED", "EXPIRED"].includes(req.status)
+    )
     : [];
 
   // 진행중 초대 조회 (내가 보낸 초대 목록, EXPIRED trip 제외)
   const invitationsResult = await getMyInvitations();
   const ongoingInvitations = invitationsResult.success
     ? (invitationsResult.data || []).filter(
-        (inv: any) => {
-          // trip이 EXPIRED 상태인 경우 제외
-          const trip = inv.trip;
-          return !trip || trip.status !== "EXPIRED";
-        }
-      )
+      (inv: any) => {
+        // trip이 EXPIRED 상태인 경우 제외
+        const trip = inv.trip;
+        return !trip || trip.status !== "EXPIRED";
+      }
+    )
     : [];
 
   // 쿼리 파라미터에서 초기값 파싱
@@ -69,7 +69,7 @@ export default async function MyPage({ searchParams }: MyPageProps) {
       if (year && monthNum) {
         initialMonth = new Date(year, monthNum - 1, 1);
       }
-    } catch (e) {
+    } catch {
       console.error("Invalid month parameter:", month);
     }
   }
@@ -80,7 +80,7 @@ export default async function MyPage({ searchParams }: MyPageProps) {
       if (year && monthNum && day) {
         initialSelectedDate = new Date(year, monthNum - 1, day);
       }
-    } catch (e) {
+    } catch {
       console.error("Invalid date parameter:", date);
     }
   }
@@ -108,15 +108,15 @@ export default async function MyPage({ searchParams }: MyPageProps) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="requests" className="mt-6">
-          <CalendarView 
-            mode="requests" 
+          <CalendarView
+            mode="requests"
             initialMonth={initialMonth}
             initialSelectedDate={initialSelectedDate}
           />
         </TabsContent>
         <TabsContent value="trips" className="mt-6">
-          <CalendarView 
-            mode="provides" 
+          <CalendarView
+            mode="provides"
             initialMonth={initialMonth}
             initialSelectedDate={initialSelectedDate}
           />

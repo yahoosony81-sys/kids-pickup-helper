@@ -45,8 +45,7 @@ export function MessageList({
     <div className="space-y-4">
       {messages.map((message) => {
         const isCurrentUser = message.sender_id === currentProfileId;
-        const isProvider = message.sender_role === "PROVIDER";
-        
+
         // PROVIDER는 왼쪽, REQUESTER는 오른쪽 정렬
         // 또는 현재 사용자 메시지는 오른쪽, 상대방 메시지는 왼쪽
         const alignClass = isCurrentUser ? "ml-auto" : "mr-auto";
@@ -66,9 +65,8 @@ export function MessageList({
                 {message.body}
               </p>
               <p
-                className={`text-xs mt-1 ${
-                  isCurrentUser ? "text-blue-100" : "text-muted-foreground"
-                }`}
+                className={`text-xs mt-1 ${isCurrentUser ? "text-blue-100" : "text-muted-foreground"
+                  }`}
               >
                 {formatDateTime(message.created_at)}
               </p>

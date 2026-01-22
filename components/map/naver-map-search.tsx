@@ -70,7 +70,7 @@ export function NaverMapSearch({
   // 네이버 지도 API 스크립트 로드
   useEffect(() => {
     console.group("🗺️ [네이버 지도] 스크립트 로드 시작");
-    
+
     const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
     console.log("1️⃣ 환경 변수 확인:", {
       hasClientId: !!clientId,
@@ -112,11 +112,11 @@ export function NaverMapSearch({
     const script = document.createElement("script");
     script.src = scriptUrl;
     script.async = true;
-    
+
     script.onload = () => {
       console.log("4️⃣ 스크립트 로드 완료 (onload 이벤트 발생)");
       console.log("   스크립트가 DOM에 추가되었지만, API 초기화는 아직 진행 중일 수 있습니다.");
-      
+
       let isLoaded = false;
       let checkCount = 0;
       const maxChecks = 100; // 최대 10초 (100ms * 100)
@@ -126,11 +126,11 @@ export function NaverMapSearch({
         if (isLoaded) return;
 
         checkCount++;
-        
+
         if (checkCount % 10 === 0) {
           console.log(`   🔄 Service 모듈 확인 중... (${checkCount}/${maxChecks})`);
         }
-        
+
         // Service 모듈이 로드되었는지 확인
         if (window.naver?.maps?.Service) {
           console.log("5️⃣ Service 모듈 발견!");
@@ -140,11 +140,11 @@ export function NaverMapSearch({
             hasReverseGeocode: typeof window.naver.maps.Service.reverseGeocode === "function",
             hasStatus: !!window.naver.maps.Service.Status,
           });
-          
+
           // Service.geocode 메서드가 실제로 사용 가능한지 확인
           if (typeof window.naver.maps.Service.geocode === "function") {
             console.log("✅ Service.geocode 메서드 사용 가능!");
-            console.log("✅ Service.reverseGeocode 메서드 사용 가능:", 
+            console.log("✅ Service.reverseGeocode 메서드 사용 가능:",
               typeof window.naver.maps.Service.reverseGeocode === "function");
             isLoaded = true;
             setIsMapLoaded(true);
@@ -220,7 +220,7 @@ export function NaverMapSearch({
       console.log("   초기화 대기 시작 (200ms 후 첫 확인)");
       setTimeout(checkService, 200);
     };
-    
+
     script.onerror = (error) => {
       console.error("❌ 네이버 지도 API 스크립트 로드 실패");
       console.error("에러 상세:", error);
@@ -233,7 +233,7 @@ export function NaverMapSearch({
       setMapError("네이버 지도 API를 불러올 수 없습니다. 네트워크 연결을 확인해주세요.");
       console.groupEnd();
     };
-    
+
     // 네이버 지도 API 인증 오류 감지 (401 오류)
     const checkAuthError = () => {
       // 스크립트 로드 후 일정 시간이 지나도 지도가 로드되지 않으면 인증 오류로 간주
@@ -253,9 +253,9 @@ export function NaverMapSearch({
         }
       }, 5000); // 5초 후 확인
     };
-    
+
     checkAuthError();
-    
+
     console.log("   스크립트를 DOM에 추가합니다...");
     document.head.appendChild(script);
     console.log("   ✅ 스크립트 DOM 추가 완료");
@@ -264,12 +264,12 @@ export function NaverMapSearch({
       // 정리 작업은 생략 (전역 스크립트이므로)
       console.log("🧹 컴포넌트 언마운트 (스크립트는 유지)");
     };
-  }, []);
+  }, [isMapLoaded, mapError]);
 
   // 지도 초기화
   useEffect(() => {
     console.group("🗺️ [네이버 지도] 지도 초기화 시작");
-    
+
     if (!isMapLoaded) {
       console.warn("⚠️ 지도가 아직 로드되지 않았습니다. (isMapLoaded: false)");
       console.groupEnd();
@@ -321,7 +321,7 @@ export function NaverMapSearch({
         center: defaultCenter,
         zoom: 15,
       });
-      
+
       console.log("✅ 지도 객체 생성 성공!");
       console.log("   지도 정보:", {
         center: {
@@ -358,7 +358,7 @@ export function NaverMapSearch({
       window.naver.maps.Event.addListener(map, "click", (e: any) => {
         const lat = e.coord.lat();
         const lng = e.coord.lng();
-        
+
         console.group("🗺️ [네이버 지도] 지도 클릭 이벤트");
         console.log("1️⃣ 클릭 좌표:", { lat, lng });
 
@@ -393,9 +393,9 @@ export function NaverMapSearch({
               status,
               statusCode: status,
               isError: status === window.naver.maps.Service.Status.ERROR,
-              statusText: status === window.naver.maps.Service.Status.OK ? "OK" : 
-                         status === window.naver.maps.Service.Status.ERROR ? "ERROR" : 
-                         "UNKNOWN",
+              statusText: status === window.naver.maps.Service.Status.OK ? "OK" :
+                status === window.naver.maps.Service.Status.ERROR ? "ERROR" :
+                  "UNKNOWN",
             });
 
             if (status === window.naver.maps.Service.Status.ERROR) {
@@ -481,10 +481,10 @@ export function NaverMapSearch({
 
     try {
       const position = new window.naver.maps.LatLng(value.lat, value.lng);
-      
+
       // 지도 중심 이동
       mapInstanceRef.current.setCenter(position);
-      
+
       // 마커 업데이트
       if (markerRef.current) {
         markerRef.current.setPosition(position);
@@ -544,7 +544,7 @@ export function NaverMapSearch({
 
       const response = await fetch(`/api/search-places?query=${encodeURIComponent(query)}`);
       const requestDuration = Date.now() - requestStartTime;
-      
+
       if (!response.ok) {
         console.log(`⚠️ Local Search API 요청 실패 (${response.status})`);
         return [];
@@ -552,16 +552,16 @@ export function NaverMapSearch({
 
       const data = await response.json();
       console.log(`📍 Local Search API 응답 수신 (${requestDuration}ms 소요)`);
-      
+
       if (data.items && data.items.length > 0) {
         console.log(`✅ Local Search API 검색 성공: ${data.items.length}개 결과 발견`);
-        
+
         // Local Search API 결과는 주소만 있으므로, Geocoding으로 좌표 변환
         const results: SearchResult[] = await Promise.all(
           data.items.map(async (item: any) => {
             let x = "";
             let y = "";
-            
+
             // 주소를 Geocoding으로 좌표 변환
             const address = item.roadAddress || item.address || "";
             if (address && window.naver?.maps?.Service?.geocode) {
@@ -583,7 +583,7 @@ export function NaverMapSearch({
                 console.error("Geocoding 변환 실패:", error);
               }
             }
-            
+
             return {
               title: item.title || "",
               roadAddress: item.roadAddress || item.address || "",
@@ -609,10 +609,10 @@ export function NaverMapSearch({
   // 주소 검색
   const handleSearch = async () => {
     console.group("🔍 [네이버 지도] 주소 검색 시작");
-    
+
     // 검색어 정제: 공백 정리, 앞뒤 공백 제거
     const cleanedQuery = searchQuery.trim().replace(/\s+/g, " ");
-    
+
     console.log("1️⃣ 검색 조건 확인:", {
       hasSearchQuery: !!cleanedQuery,
       originalQuery: searchQuery,
@@ -653,11 +653,11 @@ export function NaverMapSearch({
       const variations: string[] = [];
       const words = query.split(/\s+/).filter(w => w.length > 0);
       const noSpaceQuery = query.replace(/\s+/g, "");
-      
+
       // 원본 및 기본 변형
       variations.push(query); // 원본
       variations.push(noSpaceQuery); // 공백 제거
-      
+
       // 단어가 2개 이상인 경우 다양한 조합 생성
       if (words.length >= 2) {
         // 각 단어만
@@ -666,19 +666,19 @@ export function NaverMapSearch({
             variations.push(word);
           }
         });
-        
+
         // 연속된 단어 조합 (2개씩)
         for (let i = 0; i < words.length - 1; i++) {
           const twoWords = words.slice(i, i + 2);
           variations.push(twoWords.join(""));
           variations.push(twoWords.join(" "));
         }
-        
+
         // 모든 단어 조합 (공백 있음/없음)
         variations.push(words.join(""));
         variations.push(words.join(" "));
       }
-      
+
       // "초등학교", "중학교", "고등학교" 같은 단어 제거 후 재시도
       const schoolKeywords = ["초등학교", "중학교", "고등학교", "학교", "초등", "중등", "고등"];
       schoolKeywords.forEach(keyword => {
@@ -697,7 +697,7 @@ export function NaverMapSearch({
           }
         }
       });
-      
+
       // 지역명 추가 변형 (원본과 공백 제거 버전 모두)
       const regionNames = ["제주특별자치도", "제주시", "제주"];
       regionNames.forEach(region => {
@@ -706,13 +706,13 @@ export function NaverMapSearch({
         variations.push(region + " " + query);
         variations.push(region + " " + noSpaceQuery);
       });
-      
+
       // 단어 순서 바꾸기 (예: "도남 초등학교" -> "초등학교 도남")
       if (words.length >= 2) {
         variations.push(words.slice().reverse().join(" "));
         variations.push(words.slice().reverse().join(""));
       }
-      
+
       // 중복 제거 및 빈 문자열 제거, 최소 길이 체크
       return [...new Set(variations)].filter(q => q.length >= 2);
     };
@@ -727,24 +727,24 @@ export function NaverMapSearch({
       let lastResponse: any = null;
       let lastStatus: any = null;
       const successfulQueries: string[] = [];
-      
+
       // 장소명 검색어인 경우 Places API 우선 사용
       if (isPlaceNameQuery(cleanedQuery)) {
         console.log("4️⃣ 장소명 검색어로 판단, Places API 우선 사용");
-        
+
         // 원본 검색어와 주요 변형만 Places API로 검색
         const placeSearchQueries = [
           cleanedQuery,
           cleanedQuery.replace(/\s+/g, ""), // 공백 제거
           ...searchVariations.slice(0, 3), // 상위 3개 변형
         ].filter((q, i, arr) => arr.indexOf(q) === i); // 중복 제거
-        
+
         for (const query of placeSearchQueries) {
           const placeResults = await searchPlaces(query);
           if (placeResults.length > 0) {
             console.log(`✅ Places API 검색 성공 (변형: "${query}"): ${placeResults.length}개 결과`);
             successfulQueries.push(query);
-            
+
             // 중복 제거하면서 결과 추가
             placeResults.forEach((result) => {
               const existing = allResults.find(
@@ -754,7 +754,7 @@ export function NaverMapSearch({
                 allResults.push(result);
               }
             });
-            
+
             // 충분한 결과가 수집되면 조기 종료
             if (allResults.length >= 10) {
               console.log(`✅ 충분한 Places API 결과 수집됨 (${allResults.length}개), 검색 종료`);
@@ -762,65 +762,65 @@ export function NaverMapSearch({
             }
           }
         }
-        
+
         // Places API 결과가 있으면 그것만 사용하고 Geocoding은 스킵
         if (allResults.length > 0) {
           console.log(`✅ Places API로 ${allResults.length}개 결과 수집 완료`);
           setSearchResults(allResults);
           setIsSearching(false);
-          
+
           // 결과가 1개일 때만 자동 선택
           if (allResults.length === 1) {
             const firstResult = allResults[0];
-          let lat = parseFloat(firstResult.y);
-          let lng = parseFloat(firstResult.x);
-            const addressText = firstResult.title 
+            let lat = parseFloat(firstResult.y);
+            let lng = parseFloat(firstResult.x);
+            const addressText = firstResult.title
               ? `${firstResult.title} (${firstResult.roadAddress || firstResult.jibunAddress})`
               : firstResult.roadAddress || firstResult.jibunAddress || cleanedQuery;
 
-          if (Number.isNaN(lat) || Number.isNaN(lng)) {
-            console.warn("⚠️ 좌표 없음, 주소로 재변환 시도 (Places 결과)");
-            const fallbackAddress = firstResult.roadAddress || firstResult.jibunAddress || addressText;
-            const fallbackCoords = await geocodeAddressToCoords(fallbackAddress);
-            if (fallbackCoords) {
-              lat = fallbackCoords.lat;
-              lng = fallbackCoords.lng;
-            }
-          }
-
-          if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-            if (mapInstanceRef.current) {
-              mapInstanceRef.current.setCenter(
-                new window.naver.maps.LatLng(lat, lng)
-              );
-              mapInstanceRef.current.setZoom(17);
-              
-              if (markerRef.current) {
-                markerRef.current.setPosition(
-                  new window.naver.maps.LatLng(lat, lng)
-                );
-              } else {
-                markerRef.current = new window.naver.maps.Marker({
-                  position: new window.naver.maps.LatLng(lat, lng),
-                  map: mapInstanceRef.current,
-                });
+            if (Number.isNaN(lat) || Number.isNaN(lng)) {
+              console.warn("⚠️ 좌표 없음, 주소로 재변환 시도 (Places 결과)");
+              const fallbackAddress = firstResult.roadAddress || firstResult.jibunAddress || addressText;
+              const fallbackCoords = await geocodeAddressToCoords(fallbackAddress);
+              if (fallbackCoords) {
+                lat = fallbackCoords.lat;
+                lng = fallbackCoords.lng;
               }
             }
-            onChange({ text: addressText, lat, lng });
-          } else {
-            console.error("❌ 좌표 변환 실패 (Places 단일 결과)");
+
+            if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+              if (mapInstanceRef.current) {
+                mapInstanceRef.current.setCenter(
+                  new window.naver.maps.LatLng(lat, lng)
+                );
+                mapInstanceRef.current.setZoom(17);
+
+                if (markerRef.current) {
+                  markerRef.current.setPosition(
+                    new window.naver.maps.LatLng(lat, lng)
+                  );
+                } else {
+                  markerRef.current = new window.naver.maps.Marker({
+                    position: new window.naver.maps.LatLng(lat, lng),
+                    map: mapInstanceRef.current,
+                  });
+                }
+              }
+              onChange({ text: addressText, lat, lng });
+            } else {
+              console.error("❌ 좌표 변환 실패 (Places 단일 결과)");
             }
           }
           console.groupEnd();
           return;
         }
-        
+
         console.log("⚠️ Places API 결과 없음, Geocoding API로 폴백");
       }
-      
+
       // Geocoding API 검색 (Places API 결과가 없거나 장소명이 아닌 경우)
       console.log("5️⃣ Geocoding API 검색 시작");
-      
+
       // 여러 검색어 변형을 순차적으로 시도하고 결과 수집
       for (const query of searchVariations) {
         const requestStartTime = Date.now();
@@ -838,7 +838,7 @@ export function NaverMapSearch({
             (status: any, response: any) => {
               const requestDuration = Date.now() - requestStartTime;
               console.log(`5️⃣ Geocoding 응답 수신 (${requestDuration}ms 소요, 변형: "${query}")`);
-              
+
               lastStatus = status;
               lastResponse = response;
 
@@ -847,15 +847,15 @@ export function NaverMapSearch({
                 statusCode: status,
                 isError: status === window.naver.maps.Service.Status.ERROR,
                 isOK: status === window.naver.maps.Service.Status.OK,
-                statusText: status === window.naver.maps.Service.Status.OK ? "OK" : 
-                           status === window.naver.maps.Service.Status.ERROR ? "ERROR" : 
-                           "UNKNOWN",
+                statusText: status === window.naver.maps.Service.Status.OK ? "OK" :
+                  status === window.naver.maps.Service.Status.ERROR ? "ERROR" :
+                    "UNKNOWN",
               });
 
               if (status === window.naver.maps.Service.Status.OK) {
                 const addresses = response?.v2?.addresses || [];
                 console.log(`   검색 결과: ${addresses.length}개 발견`);
-                
+
                 if (addresses.length > 0) {
                   console.log(`✅ 검색 성공! (변형: "${query}")`);
                   successfulQueries.push(query);
@@ -879,7 +879,7 @@ export function NaverMapSearch({
                   console.log(`⚠️ 결과 없음 (변형: "${query}"), 다음 변형 시도...`);
                 }
               }
-              
+
               resolve();
             }
           );
