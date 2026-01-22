@@ -1,0 +1,79 @@
+﻿
+> saas-mini-course@0.1.0 build C:\Users\soonsim\20251231_pickup_helper\kids_pickup_helper
+> next build
+
+   ??Next.js 15.5.7
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ??Compiled successfully in 6.5s
+   Linting and checking validity of types ...
+
+./components/map-section.tsx
+10:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/meta-pixel.tsx
+74:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/pre-register.tsx
+80:14  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/trip-reviews/review-form.tsx
+48:3  Warning: 'tripId' is defined but never used.  @typescript-eslint/no-unused-vars
+49:3  Warning: 'providerProfileId' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/trip-reviews/submit-review-button.tsx
+36:3  Warning: 'isValid' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/ui/command.tsx
+37:3  Warning: 'showCloseButton' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/ui/use-toast.ts
+18:7  Warning: 'actionTypes' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+node.exe : Failed to compile.
+위치 C:\Program Files\nodejs\pnpm.ps1:16 문
+자:5
++     & "$basedir/node$exe"  "$basedir/n
+ode_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecif 
+   ied: (Failed to compile.:String) []  
+  , RemoteException
+    + FullyQualifiedErrorId : NativeCom 
+   mandError
+ 
+
+./components/ui/resizable.tsx:12:51
+Type error: Property 'PanelGroup' does n
+ot exist on type 'typeof import("C:/User
+s/soonsim/20251231_pickup_helper/kids_pi
+ckup_helper/node_modules/.pnpm/react-res
+izable-panels@4.4.1_react-dom@19.2.3_rea
+ct@19.2.3__react@19.2.3/node_modules/rea
+ct-resizable-panels/dist/react-resizable
+-panels")'.
+
+[0m [90m 10 |[39m   className[33m,[
+39m
+ [90m 11 |[39m   [33m...[39mprops
+[31m[1m>[22m[39m[90m 12 |[39m }[3
+3m:[39m [33mReact[39m[33m.[39m[33m
+ComponentProps[39m[33m<[39m[36mtypeo
+f[39m [33mResizablePrimitive[39m[33m
+.[39m[33mPanelGroup[39m[33m>[39m) {
+ [90m    |[39m                        
+                           [31m[1m^[2
+2m[39m
+ [90m 13 |[39m   [36mreturn[39m (
+ [90m 14 |[39m     [33m<[39m[33mRes
+izablePrimitive[39m[33m.[39m[33mPane
+lGroup[39m
+ [90m 15 |[39m       data[33m-[39msl
+ot[33m=[39m[32m"resizable-panel-group
+"[39m[0m
+Next.js build worker exited with code: 1
+ and signal: null
+?덭LIFECYCLE??Command failed with exit code 1.
