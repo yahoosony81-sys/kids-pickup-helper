@@ -28,7 +28,7 @@ const Navbar = () => {
     <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
         <Link href="/" className="text-2xl font-bold">
-          SaaS Template
+          우리아이 픽업이모
         </Link>
         <div className="flex gap-4 items-center">
           <SignedIn>

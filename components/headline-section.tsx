@@ -4,11 +4,9 @@ export function HeadlineSection() {
       <div className="max-w-md mx-auto text-center">
         <div className="bg-black/30 backdrop-blur-sm rounded-2xl px-6 py-8 shadow-lg">
           <h1 className="font-bold text-white drop-shadow-lg leading-tight" style={{ fontSize: "34px" }}>
-            학교에서 학원으로...
+            우리아이 안전한 하교길,
             <br />
-            학원에서 집으로...
-            <br />
-            아이 혼자 보내기 불안하셨죠?
+            같은 학교 학부모가 함께 합니다
           </h1>
 
           <div className="mt-6 space-y-2 flex flex-col items-center">
