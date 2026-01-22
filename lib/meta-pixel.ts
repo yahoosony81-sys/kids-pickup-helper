@@ -63,7 +63,7 @@ declare global {
     interface Window {
         fbq: (
             action: 'init' | 'track' | 'trackCustom',
-            pixelId: string | 'PageView' | 'CompleteRegistration' | string,
+            pixelId: string,
             data?: Record<string, any>
         ) => void;
         _fbq: typeof window.fbq;

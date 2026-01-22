@@ -10,11 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Loader2, HandHelping, Car } from "lucide-react"
 
-declare global {
-  interface Window {
-    fbq: (...args: any[]) => void
-  }
-}
 
 type ApplicationType = "REQUEST" | "PROVIDE" | null
 
@@ -35,7 +30,7 @@ const sha256Hash = async (message: string): Promise<string> => {
 const normalizePhone = (phone: string): string => {
   // 숫자만 추출
   let digits = phone.replace(/[^\d]/g, "")
-  
+
   // 한국 전화번호 처리: 010으로 시작하면 82 국가코드 추가
   if (digits.startsWith("010")) {
     digits = "82" + digits.slice(1) // 010 -> 8210
@@ -44,7 +39,7 @@ const normalizePhone = (phone: string): string => {
   } else if (!digits.startsWith("82")) {
     digits = "82" + digits // 국가코드 없으면 추가
   }
-  
+
   return digits
 }
 
@@ -55,12 +50,12 @@ const trackLeadEventWithAdvancedMatching = async (email: string, phone?: string)
       // 이메일 정규화 및 해싱 (필수)
       const normalizedEmail = email.trim().toLowerCase()
       const hashedEmail = await sha256Hash(normalizedEmail)
-      
+
       // 고급 매칭 데이터 객체 (해싱된 값 사용)
       const advancedMatchingData: { em: string; ph?: string } = {
         em: hashedEmail,
       }
-      
+
       // 휴대폰번호가 있는 경우에만 정규화 및 해싱
       if (phone && phone.trim()) {
         const normalizedPhone = normalizePhone(phone)
@@ -69,19 +64,19 @@ const trackLeadEventWithAdvancedMatching = async (email: string, phone?: string)
           advancedMatchingData.ph = hashedPhone
         }
       }
-      
+
       // fbq.push를 사용하여 사용자 데이터 설정 (init 재호출 대신)
       // 이미 초기화된 픽셀에 사용자 데이터 업데이트
       if (typeof window.fbq === "function") {
         // 사용자 데이터 설정
         window.fbq("init", "672769682470185", advancedMatchingData)
-        
+
         // Lead 이벤트 발생 (user_data 포함)
-        window.fbq("track", "Lead", {}, {
+        window.fbq("track", "Lead", {
           eventID: `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         })
       }
-      
+
     } catch (error) {
       // 에러 발생 시에도 기본 Lead 이벤트는 발생
       if (window.fbq) {
@@ -112,7 +107,7 @@ export function PreRegister({ isOpen, setIsOpen }: { isOpen?: boolean; setIsOpen
   const [phone, setPhone] = useState("")
   const [region, setRegion] = useState("")
   const [childSchoolName, setChildSchoolName] = useState("")
-  
+
   // 제출된 이메일/전화번호 저장 (고급 매칭용)
   const [submittedEmail, setSubmittedEmail] = useState("")
   const [submittedPhone, setSubmittedPhone] = useState("")
@@ -206,7 +201,7 @@ export function PreRegister({ isOpen, setIsOpen }: { isOpen?: boolean; setIsOpen
       // 고급 매칭을 위해 제출된 이메일/전화번호 저장
       setSubmittedEmail(email.trim())
       setSubmittedPhone(phone.trim())
-      
+
       setIsSubmitted(true)
     } catch (error) {
       console.error("등록 오류:", error)
@@ -350,9 +345,8 @@ export function PreRegister({ isOpen, setIsOpen }: { isOpen?: boolean; setIsOpen
                         ← 뒤로
                       </button>
                       <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          applicationType === "REQUEST" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"
-                        }`}
+                        className={`text-xs px-2 py-1 rounded-full ${applicationType === "REQUEST" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"
+                          }`}
                       >
                         {applicationType === "REQUEST" ? "서비스 요청" : "서비스 제공"}
                       </span>

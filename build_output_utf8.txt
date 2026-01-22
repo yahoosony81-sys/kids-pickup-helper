@@ -1,0 +1,68 @@
+﻿
+> saas-mini-course@0.1.0 build C:\Users\soonsim\20251231_pickup_helper\kids_pickup_helper
+> next build
+
+   ??Next.js 15.5.7
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ??Compiled successfully in 6.2s
+   Linting and checking validity of types ...
+
+./components/map-section.tsx
+10:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/meta-pixel.tsx
+74:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/pre-register.tsx
+80:14  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/trip-reviews/review-form.tsx
+48:3  Warning: 'tripId' is defined but never used.  @typescript-eslint/no-unused-vars
+49:3  Warning: 'providerProfileId' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/trip-reviews/submit-review-button.tsx
+36:3  Warning: 'isValid' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/ui/use-toast.ts
+18:7  Warning: 'actionTypes' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+node.exe : Failed to compile.
+위치 C:\Program Files\nodejs\pnpm.ps1:16 문자:5
++     & "$basedir/node$exe"  "$basedir/node_modu
+les/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Fa 
+   iled to compile.:String) [], RemoteExceptio  
+  n
+    + FullyQualifiedErrorId : NativeCommandErro 
+   r
+ 
+
+./components/theme-provider.tsx:7:8
+Type error: Cannot find module 'next-themes' or 
+its corresponding type declarations.
+
+[0m [90m  5 |[39m   [33mThemeProvider[39m 
+[36mas[39m [33mNextThemesProvider[39m[33m,[
+39m
+ [90m  6 |[39m   type [33mThemeProviderProps
+[39m[33m,[39m
+[31m[1m>[22m[39m[90m  7 |[39m } [36mfrom
+[39m [32m'next-themes'[39m
+ [90m    |[39m        [31m[1m^[22m[39m
+ [90m  8 |[39m
+ [90m  9 |[39m [36mexport[39m [36mfunction
+[39m [33mThemeProvider[39m({ children[33m,[3
+9m [33m...[39mprops }[33m:[39m [33mThemePro
+viderProps[39m) {
+ [90m 10 |[39m   [36mreturn[39m [33m<[39m
+[33mNextThemesProvider[39m {[33m...[39mprops}
+[33m>[39m{children}[33m<[39m[33m/[39m[33m
+NextThemesProvider[39m[33m>[39m[0m
+Next.js build worker exited with code: 1 and sig
+nal: null
+?덭LIFECYCLE??Command failed with exit code 1.
