@@ -132,24 +132,26 @@
 }
 
 /* Clerk Social Button Customization */
+button[data-variant="solid"][data-localization-key="socialButtonsBlockButton"][data-strategy="oauth_kakao"],
 .cl-socialButtonsBlockButton[data-strategy="oauth_kakao"] {
   background-color: #FEE500 !important;
   color: #3C1E1E !important;
-  /* Kakao dark brown text */
   border: none !important;
 }
 
+button[data-variant="solid"][data-localization-key="socialButtonsBlockButton"][data-strategy="oauth_kakao"]:hover,
 .cl-socialButtonsBlockButton[data-strategy="oauth_kakao"]:hover {
   background-color: #FDD835 !important;
 }
 
-/* Hide original text and replace with custom text */
-.cl-socialButtonsBlockButton[data-strategy="oauth_kakao"] .cl-socialButtonsBlockButtonText,
-.cl-socialButtonsBlockButton[data-strategy="oauth_google"] .cl-socialButtonsBlockButtonText,
-.cl-socialButtonsBlockButton[data-strategy="oauth_github"] .cl-socialButtonsBlockButtonText {
+/* Hide original text */
+button[data-variant="solid"][data-localization-key="socialButtonsBlockButton"] .cl-socialButtonsBlockButtonText,
+.cl-socialButtonsBlockButton .cl-socialButtonsBlockButtonText {
   display: none !important;
 }
 
+/* Custom Text - Kakao */
+button[data-variant="solid"][data-localization-key="socialButtonsBlockButton"][data-strategy="oauth_kakao"]::after,
 .cl-socialButtonsBlockButton[data-strategy="oauth_kakao"]::after {
   content: "카카오톡 로그인";
   font-weight: 600;
@@ -157,6 +159,8 @@
   text-align: center;
 }
 
+/* Custom Text - Google */
+button[data-variant="solid"][data-localization-key="socialButtonsBlockButton"][data-strategy="oauth_google"]::after,
 .cl-socialButtonsBlockButton[data-strategy="oauth_google"]::after {
   content: "구글";
   font-weight: 500;
@@ -164,6 +168,8 @@
   text-align: center;
 }
 
+/* Custom Text - GitHub */
+button[data-variant="solid"][data-localization-key="socialButtonsBlockButton"][data-strategy="oauth_github"]::after,
 .cl-socialButtonsBlockButton[data-strategy="oauth_github"]::after {
   content: "깃허브";
   font-weight: 500;
