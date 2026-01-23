@@ -32,7 +32,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={koKR}>
+    <ClerkProvider
+      localization={koKR}
+      appearance={{
+        layout: {
+          socialButtonsVariant: 'blockButton',
+        },
+        elements: {
+          socialButtonsBlockButton: "h-11",
+        }
+      }}
+    >
       <html lang="ko">
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
