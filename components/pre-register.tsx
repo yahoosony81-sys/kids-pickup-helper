@@ -77,7 +77,7 @@ const trackLeadEventWithAdvancedMatching = async (email: string, phone?: string)
         })
       }
 
-    } catch (error) {
+    } catch {
       // 에러 발생 시에도 기본 Lead 이벤트는 발생
       if (window.fbq) {
         window.fbq("track", "Lead")

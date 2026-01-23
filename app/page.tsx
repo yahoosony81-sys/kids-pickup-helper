@@ -12,18 +12,18 @@ export default function Home() {
     <div className="w-full max-w-md mx-auto">
       {/* 배경 이미지 섹션: 히어로 + 서비스 카드 */}
       <section
-        className="relative bg-cover bg-center bg-no-repeat min-h-[50vh]"
+        className="relative bg-cover bg-center bg-no-repeat min-h-[85vh] flex flex-col justify-between"
         style={{
           backgroundImage: `url('/saas템플릿사진.png')`,
         }}
       >
         {/* SECTION 1: 불안 공감 헤드라인 */}
-        <div className="relative z-10">
+        <div className="relative z-10 w-full">
           <HeadlineSection />
         </div>
 
         {/* SECTION 2: 서비스 카드 (행동 선택) */}
-        <div className="relative z-10 pb-6">
+        <div className="relative z-10 w-full">
           <ServiceCardSection />
         </div>
       </section>
