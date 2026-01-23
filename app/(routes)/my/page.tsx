@@ -25,6 +25,10 @@ import { getMyInvitations } from "@/actions/invitations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarView } from "@/components/my/calendar-view";
 
+import { SignOutButton } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
+
 export const dynamic = "force-dynamic";
 
 interface MyPageProps {
@@ -90,11 +94,19 @@ export default async function MyPage({ searchParams }: MyPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">마이페이지</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          내 픽업 요청과 제공을 관리할 수 있습니다. 달력에서 날짜를 클릭하면 해당 날짜의 상세 내역을 확인할 수 있습니다.
-        </p>
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">마이페이지</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            내 픽업 요청과 제공을 관리할 수 있습니다. 달력에서 날짜를 클릭하면 해당 날짜의 상세 내역을 확인할 수 있습니다.
+          </p>
+        </div>
+        <SignOutButton>
+          <Button variant="outline" size="sm" className="gap-2 shrink-0">
+            <LogOut className="h-4 w-4" />
+            로그아웃
+          </Button>
+        </SignOutButton>
       </div>
 
       {/* 탭 구조 */}
