@@ -117,7 +117,12 @@ export async function createTrip(data: {
 
     return {
       success: true,
-      data: trip,
+      data: {
+        id: trip.id,
+        title: trip.title,
+        scheduled_start_at: trip.scheduled_start_at,
+        status: trip.status,
+      },
     };
   } catch (error) {
     console.error("❌ createTrip 에러:", error);
@@ -408,9 +413,7 @@ export async function getMyTrips(status?: string) {
         console.log("🔒 출발 30분 전 도달, 그룹 LOCK 처리:", { tripId: trip.id });
 
         // 그룹 LOCK
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'trips.ts:320', message: 'Before LOCK update', data: { tripId: trip.id, currentStatus: trip.status }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run3', hypothesisId: 'D' }) }).catch(() => { });
-        // #endregion
+
 
         const { error: lockError } = await supabase
           .from("trips")
@@ -420,9 +423,7 @@ export async function getMyTrips(status?: string) {
           })
           .eq("id", trip.id);
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'trips.ts:328', message: 'After LOCK update: error check', data: { hasError: !!lockError, errorMessage: lockError?.message, errorCode: lockError?.code, errorFull: lockError ? JSON.stringify(lockError, Object.getOwnPropertyNames(lockError)) : null }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run3', hypothesisId: 'E' }) }).catch(() => { });
-        // #endregion
+
 
         if (lockError) {
           console.error("❌ 그룹 LOCK 처리 실패:", {

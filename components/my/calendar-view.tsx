@@ -33,8 +33,8 @@ export type CalendarViewMode = "requests" | "provides";
 
 export interface CalendarViewProps {
   mode: CalendarViewMode;
-  initialMonth?: Date;
-  initialSelectedDate?: Date | null;
+  initialMonth?: Date | string;
+  initialSelectedDate?: Date | string | null;
 }
 
 /**
@@ -45,17 +45,31 @@ export function CalendarView({
   initialMonth,
   initialSelectedDate
 }: CalendarViewProps) {
-  const [currentMonth, setCurrentMonth] = useState<Date>(initialMonth || new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(initialSelectedDate || null);
+  const [currentMonth, setCurrentMonth] = useState<Date>(
+    initialMonth ? new Date(initialMonth) : new Date()
+  );
+  const [selectedDate, setSelectedDate] = useState<Date | null>(
+    initialSelectedDate ? new Date(initialSelectedDate) : null
+  );
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [calendarStats, setCalendarStats] = useState<CalendarStat[]>([]);
 
   // 초기 선택된 날짜가 있으면 Drawer 자동 열기
   useEffect(() => {
-    if (initialSelectedDate && !isDrawerOpen) {
+    if (initialSelectedDate) {
+      const date = new Date(initialSelectedDate);
+      setSelectedDate(date);
       setIsDrawerOpen(true);
     }
-  }, [initialSelectedDate, isDrawerOpen]);
+  }, [initialSelectedDate]);
+
+  // 초기 월이 변경되면 업데이트
+  useEffect(() => {
+    if (initialMonth) {
+      const date = new Date(initialMonth);
+      setCurrentMonth(date);
+    }
+  }, [initialMonth]);
 
   // 현재 월의 집계 데이터 로드
   useEffect(() => {

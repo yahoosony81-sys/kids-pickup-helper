@@ -105,7 +105,7 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
   let acceptedInvitation = null;
   let tripId = null;
   let unreadCount = 0;
-  
+
   try {
     const { userId } = await auth();
     if (userId) {
@@ -144,7 +144,7 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
   // 초대 목록 조회 (제공자 프로필 정보 포함)
   const invitationsResult = await getInvitationsForRequest(requestId);
   const invitations = invitationsResult.success ? invitationsResult.data : [];
-  
+
   // 디버깅 로그 추가
   console.log("📋 [RequestDetailPage] 초대 목록 조회 결과:", {
     success: invitationsResult.success,
@@ -154,7 +154,7 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
     pickupRequestStatus: pickupRequest.status,
     requestId,
   });
-  
+
   // PENDING 초대 필터링 (EXPIRED 상태가 아닐 때만)
   const pendingInvitations = invitations.filter(
     (inv) => inv.status === "PENDING" && pickupRequest.status !== "EXPIRED"
@@ -174,11 +174,11 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
   const isExpired = pickupRequest.status === "EXPIRED";
 
   // 진행 상태 표시 여부 (MATCHED 이상 상태일 때만, CANCELLED 제외)
-  const showProgress = !isExpired && 
+  const showProgress = !isExpired &&
     pickupRequest.status !== "CANCELLED" &&
-    (pickupRequest.status === "MATCHED" || 
-     pickupRequest.status === "IN_PROGRESS" || 
-     pickupRequest.status === "COMPLETED");
+    (pickupRequest.status === "MATCHED" ||
+      pickupRequest.status === "IN_PROGRESS" ||
+      pickupRequest.status === "COMPLETED");
 
   // 도착사진 조회 (ARRIVED 또는 COMPLETED 상태일 때만)
   let arrivalPhoto = null;
@@ -285,8 +285,8 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                     <MessageSquare className="mr-2 h-4 w-4" />
                     메시지 작성
                     {unreadCount > 0 && (
-                      <Badge 
-                        variant="destructive" 
+                      <Badge
+                        variant="destructive"
                         className="ml-2 h-5 min-w-5 px-1.5 text-xs"
                       >
                         {unreadCount > 9 ? "9+" : unreadCount}
@@ -350,7 +350,7 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <PickupProgressTimeline progressStage={pickupRequest.progress_stage} />
+              <PickupProgressTimeline progressStage={pickupRequest.progress_stage} tripId={tripId || undefined} />
             </CardContent>
           </Card>
         )}
@@ -410,11 +410,10 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                       {[1, 2, 3, 4, 5].map((rating) => (
                         <Star
                           key={rating}
-                          className={`h-5 w-5 ${
-                            rating <= review.rating
+                          className={`h-5 w-5 ${rating <= review.rating
                               ? "fill-yellow-400 text-yellow-400"
                               : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
-                          }`}
+                            }`}
                         />
                       ))}
                     </div>

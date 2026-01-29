@@ -20,8 +20,9 @@ import { useState } from "react";
 import { startTrip, cancelUnmetStudents } from "@/actions/trips";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { Play, Lock } from "lucide-react";
+import { Play, Lock, MapPin } from "lucide-react";
 import { CancelStudentModal } from "./cancel-student-modal";
+import { useLocationBroadcast } from "@/hooks/use-location-broadcast";
 
 interface StartTripButtonProps {
   tripId: string;
@@ -42,6 +43,9 @@ export function StartTripButton({
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const router = useRouter();
+
+  // 실시간 위치 브로드캐스트 훅
+  const { isTracking, startTracking, stopTracking } = useLocationBroadcast();
 
   // 확인된 학생 수 계산
   const metStudentsCount = participants.filter(
@@ -116,6 +120,10 @@ export function StartTripButton({
         setIsLoading(false);
         return;
       }
+
+      // 출발 성공 시 실시간 위치 추적 시작
+      startTracking(tripId);
+      console.log("🚗 위치 추적 시작됨:", tripId);
 
       // 성공 시 페이지 새로고침
       router.refresh();

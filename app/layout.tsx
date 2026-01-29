@@ -33,13 +33,31 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider
-      localization={koKR}
+      localization={{
+        ...koKR,
+        socialButtonsBlockButton: "로그인",
+        socialButtonsBlockButton__kakao: "카카오톡으로 로그인",
+        socialButtonsBlockButton__github: "깃허브로 로그인",
+        socialButtonsBlockButton__google: "구글로 로그인",
+      } as any}
       appearance={{
         layout: {
           socialButtonsVariant: 'blockButton',
+          socialButtonsPlacement: 'top',
         },
         elements: {
-          socialButtonsBlockButton: "h-11",
+          socialButtonsBlockButton: "h-11 w-full flex justify-center items-center gap-2 mb-2",
+          socialButtonsBlockButtonText: "font-medium",
+          socialButtonsProviderIcon: "w-5 h-5",
+          // Kakao button styling
+          socialButtonsBlockButton__kakao: {
+            backgroundColor: '#FEE500',
+            color: '#000000',
+            border: 'none',
+            '&:hover': {
+              backgroundColor: '#FDD835'
+            }
+          }
         }
       }}
     >

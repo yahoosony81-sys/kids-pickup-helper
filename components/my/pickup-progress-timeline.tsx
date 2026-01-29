@@ -8,6 +8,7 @@
  * 3. 경우1: STARTED 상태 - "픽업이 시작되었습니다" 버튼 3초 활성화 → 비활성화, "목적지로 이동중" 버튼 활성화
  * 4. 경우2: ARRIVED 상태 - "목적지로 이동중" 버튼 비활성화, "도착완료" 버튼 3초 활성화 → 비활성화
  * 5. 화살표 구분자 표시 (버튼 중앙 아래쪽)
+ * 6. "목적지로 이동중" 상태에서 실시간 위치 지도 표시
  *
  * @dependencies
  * - @/components/my/started-box: StartedBox 컴포넌트
@@ -27,10 +28,12 @@ import { ArrivedBox } from "./arrived-box";
 interface PickupProgressTimelineProps {
   progressStage: string | null;
   showConfirmButton?: boolean;
+  tripId?: string; // 실시간 위치 지도를 위한 tripId
 }
 
 export function PickupProgressTimeline({
   progressStage,
+  tripId,
 }: PickupProgressTimelineProps) {
   // 기본값은 MATCHED
   const stage = progressStage || "MATCHED";
@@ -102,7 +105,7 @@ export function PickupProgressTimeline({
         <>
           <StartedBox isActive={startedActive} />
           <ArrowSeparator />
-          <MovingBox isActive={movingActive} />
+          <MovingBox isActive={movingActive} tripId={tripId} showMap={true} />
         </>
       )}
 
@@ -111,7 +114,7 @@ export function PickupProgressTimeline({
         <>
           <StartedBox isActive={false} />
           <ArrowSeparator />
-          <MovingBox isActive={false} />
+          <MovingBox isActive={false} tripId={tripId} showMap={false} />
           <ArrowSeparator />
           <ArrivedBox isActive={arrivedActive} />
         </>
@@ -119,4 +122,3 @@ export function PickupProgressTimeline({
     </div>
   );
 }
-

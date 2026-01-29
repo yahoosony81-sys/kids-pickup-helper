@@ -108,7 +108,11 @@ export function OngoingTripsTab({ trips }: OngoingTripsTabProps) {
               </div>
               <div className="mt-4 pt-4 border-t">
                 <Button asChild variant="outline" className="w-full">
-                  <Link href={`/trips/${trip.id}`}>상세 보기</Link>
+                  {(!trip.trip_participants || trip.trip_participants.length === 0) ? (
+                    <Link href={`/trips/${trip.id}/invite`}>요청자 리스트 보기</Link>
+                  ) : (
+                    <Link href={`/trips/${trip.id}`}>상세 보기</Link>
+                  )}
                 </Button>
               </div>
             </CardContent>

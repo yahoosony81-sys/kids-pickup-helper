@@ -115,6 +115,10 @@ export async function OngoingRequestsTab({
                 new Date(b.created_at).getTime()
             );
 
+          // ACCEPTED 초대에서 tripId 추출 (실시간 위치 지도용)
+          const acceptedInvitation = invitations.find((inv: any) => inv.status === "ACCEPTED");
+          const tripId = acceptedInvitation?.trip_id;
+
           return (
             <div key={request.id} className="space-y-4">
               <Card className="hover:shadow-md transition-shadow">
@@ -202,6 +206,7 @@ export async function OngoingRequestsTab({
                         <div className="pt-3 border-t">
                           <PickupProgressTimeline
                             progressStage={request.progress_stage}
+                            tripId={tripId}
                           />
                           {/* 도착 확인 UI (ARRIVED 상태에서만 표시) */}
                           {request.progress_stage === "ARRIVED" && (

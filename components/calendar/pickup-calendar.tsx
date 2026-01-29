@@ -152,9 +152,7 @@ export function PickupCalendar({
         }}
         components={{
           Chevron: ({ orientation, className, ...props }) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'pickup-calendar.tsx:152', message: 'Chevron render', data: { orientation, hasClassName: !!className, propsKeys: Object.keys(props) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-            // #endregion
+
 
             // Chevron은 단순히 아이콘만 렌더링 (DayPicker가 이미 button을 렌더링함)
             if (orientation === "left") {

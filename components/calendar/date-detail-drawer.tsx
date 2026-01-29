@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Users, Lock } from "lucide-react";
 import { formatDateTime, formatDateTimeShort } from "@/lib/utils";
@@ -201,6 +202,94 @@ export function DateDetailDrawer({
     day: "numeric",
   });
 
+  const renderTripList = (tripList: any[]) => (
+    <div className="space-y-4">
+      {tripList.map((trip: any) => {
+        const statusInfo =
+          tripStatusConfig[trip.status] || {
+            label: trip.status,
+            className: "bg-gray-100 text-gray-800",
+          };
+
+        return (
+          <Card key={trip.id} className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">
+                      {trip.title || `픽업제공 #${trip.id.slice(0, 8)}`}
+                    </CardTitle>
+                    {trip.is_test && (
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        테스트
+                      </span>
+                    )}
+                  </div>
+                  <CardDescription className="mt-1">
+                    {trip.scheduled_start_at &&
+                      formatDateTime(trip.scheduled_start_at)}
+                  </CardDescription>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
+                >
+                  {statusInfo.label}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">수용 인원:</span>
+                    <span className="font-medium">
+                      {trip.trip_participants?.length || 0} / {trip.capacity}
+                    </span>
+                  </div>
+                  {trip.is_locked && (
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-yellow-600" />
+                      <span className="text-yellow-600 font-medium">LOCK</span>
+                    </div>
+                  )}
+                </div>
+                {trip.start_at && (
+                  <div className="text-sm text-muted-foreground">
+                    출발 시간: {formatDateTime(trip.start_at)}
+                  </div>
+                )}
+                {trip.arrived_at && (
+                  <div className="text-sm text-muted-foreground">
+                    도착 시간: {formatDateTime(trip.arrived_at)}
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 pt-4 border-t">
+                {(!trip.trip_participants || trip.trip_participants.length === 0) ? (
+                  <Link
+                    href={`/trips/${trip.id}/invite`}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    요청자 리스트 보기
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/trips/${trip.id}`}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    상세 보기 →
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -303,82 +392,37 @@ export function DateDetailDrawer({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {trips.map((trip: any) => {
-              const statusInfo =
-                tripStatusConfig[trip.status] || {
-                  label: trip.status,
-                  className: "bg-gray-100 text-gray-800",
-                };
+          (() => {
+            const newTrips = trips.filter(
+              (t) => !t.trip_participants || t.trip_participants.length === 0
+            );
+            const activeTrips = trips.filter(
+              (t) => t.trip_participants && t.trip_participants.length > 0
+            );
 
+            if (newTrips.length > 0 && activeTrips.length > 0) {
               return (
-                <Card key={trip.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-lg">
-                            {trip.title || `픽업제공 #${trip.id.slice(0, 8)}`}
-                          </CardTitle>
-                          {trip.is_test && (
-                            <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                              테스트
-                            </span>
-                          )}
-                        </div>
-                        <CardDescription className="mt-1">
-                          {trip.scheduled_start_at &&
-                            formatDateTime(trip.scheduled_start_at)}
-                        </CardDescription>
-                      </div>
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
-                      >
-                        {statusInfo.label}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">수용 인원:</span>
-                          <span className="font-medium">
-                            {trip.trip_participants?.length || 0} / {trip.capacity}
-                          </span>
-                        </div>
-                        {trip.is_locked && (
-                          <div className="flex items-center gap-2">
-                            <Lock className="h-4 w-4 text-yellow-600" />
-                            <span className="text-yellow-600 font-medium">LOCK</span>
-                          </div>
-                        )}
-                      </div>
-                      {trip.start_at && (
-                        <div className="text-sm text-muted-foreground">
-                          출발 시간: {formatDateTime(trip.start_at)}
-                        </div>
-                      )}
-                      {trip.arrived_at && (
-                        <div className="text-sm text-muted-foreground">
-                          도착 시간: {formatDateTime(trip.arrived_at)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-4 pt-4 border-t">
-                      <Link
-                        href={`/trips/${trip.id}`}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        상세 보기 →
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Tabs defaultValue="new" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="new">
+                      모집 중 ({newTrips.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="active">
+                      진행 중 ({activeTrips.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="new">
+                    {renderTripList(newTrips)}
+                  </TabsContent>
+                  <TabsContent value="active">
+                    {renderTripList(activeTrips)}
+                  </TabsContent>
+                </Tabs>
               );
-            })}
-          </div>
+            }
+
+            return renderTripList(trips);
+          })()
         )}
       </DialogContent>
     </Dialog>

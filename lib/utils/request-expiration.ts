@@ -106,11 +106,8 @@ export async function expireRequestIfPast(
 
     // 8. 만료 처리: status를 EXPIRED로 업데이트
     console.log("⏰ 픽업 시간 지남, EXPIRED 상태로 전환");
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'request-expiration.ts:109',message:'Before update: request state',data:{requestId,currentStatus:request.status,pickupTime:request.pickup_time,requestExists:!!request},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    
+
+
     const { data: updatedRequest, error: updateError } = await supabase
       .from("pickup_requests")
       .update({ status: "EXPIRED" })
@@ -118,21 +115,16 @@ export async function expireRequestIfPast(
       .select()
       .single();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'request-expiration.ts:125',message:'After update: error check',data:{hasError:!!updateError,errorType:updateError?.constructor?.name,errorKeys:updateError?Object.keys(updateError):[],errorString:String(updateError),errorJSON:updateError?JSON.stringify(updateError):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
+
 
     if (updateError) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/528c9e7e-7e59-428c-bfd2-4d73065ea0ec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'request-expiration.ts:120',message:'Update error details',data:{requestId,errorMessage:updateError.message,errorCode:updateError.code,errorDetails:updateError.details,errorHint:updateError.hint,errorFull:JSON.stringify(updateError,Object.getOwnPropertyNames(updateError))},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      
+
       // 에러 메시지가 enum 관련이면 명확한 안내 메시지 표시
       const isEnumError = updateError.message?.includes('enum') || updateError.code === '22P02';
-      const errorMessage = isEnumError 
+      const errorMessage = isEnumError
         ? `데이터베이스에 EXPIRED 상태가 없습니다. 마이그레이션을 적용해주세요: ${updateError.message}`
         : updateError.message || "알 수 없는 에러";
-      
+
       console.error("❌ Request 만료 처리 실패:", {
         requestId,
         message: errorMessage,
