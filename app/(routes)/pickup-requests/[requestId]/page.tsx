@@ -40,6 +40,7 @@ import { CancelRequestButton } from "@/components/pickup-requests/cancel-request
 import { InvitationCard } from "@/components/invitations/invitation-card";
 import { PickupProgressTimeline } from "@/components/my/pickup-progress-timeline";
 import { CanceledBox } from "@/components/my/canceled-box";
+import { PickupRequestStatusContainer } from "@/components/pickup-requests/pickup-request-status-container";
 import { formatDateTime } from "@/lib/utils";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
@@ -276,51 +277,17 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                 </div>
               </div>
             )}
-
-            {/* 메시지 버튼 (ACCEPTED invitation이 있는 경우만, EXPIRED가 아닐 때만) */}
-            {acceptedInvitation && tripId && !isExpired && (
-              <div className="pt-4 border-t">
-                <Button asChild variant="outline" className="w-full relative">
-                  <Link href={`/trips/${tripId}/messages/${acceptedInvitation.id}`}>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    메시지 작성
-                    {unreadCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="ml-2 h-5 min-w-5 px-1.5 text-xs"
-                      >
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </Badge>
-                    )}
-                  </Link>
-                </Button>
-              </div>
-            )}
-
-            {/* 취소 버튼 (EXPIRED가 아닐 때만) */}
-            {!isExpired && (
-              <div className="pt-4 border-t">
-                {/* 취소 가능한 경우 (REQUESTED, MATCHED) 취소 페이지로 이동 */}
-                {(pickupRequest.status === "REQUESTED" || pickupRequest.status === "MATCHED") && (
-                  <Button asChild variant="destructive" className="w-full">
-                    <Link href={`/pickup-requests/${pickupRequest.id}/cancel`}>
-                      <X className="mr-2 h-4 w-4" />
-                      취소하기
-                    </Link>
-                  </Button>
-                )}
-                {/* 기존 취소 요청 버튼 (CANCEL_REQUESTED 상태용) */}
-                {pickupRequest.status !== "REQUESTED" && pickupRequest.status !== "MATCHED" && (
-                  <CancelRequestButton
-                    pickupRequestId={pickupRequest.id}
-                    status={pickupRequest.status}
-                    pickupTime={pickupRequest.pickup_time}
-                  />
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* 실시간 상태 업데이트 Container */}
+        <PickupRequestStatusContainer
+          initialRequest={pickupRequest}
+          requestId={requestId}
+          tripId={tripId}
+          acceptedInvitationId={acceptedInvitation?.id || null}
+          unreadCount={unreadCount}
+        />
 
         {/* 취소 상태 표시 섹션 */}
         {!isExpired && pickupRequest.status === "CANCELLED" && (
@@ -336,21 +303,6 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                 cancelReasonCode={pickupRequest.cancel_reason_code}
                 cancelReasonText={pickupRequest.cancel_reason_text}
               />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 진행 상태 표시 섹션 */}
-        {showProgress && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">픽업 진행 상태</CardTitle>
-              <CardDescription className="mt-1">
-                픽업 서비스의 현재 진행 상황입니다.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PickupProgressTimeline progressStage={pickupRequest.progress_stage} tripId={tripId || undefined} />
             </CardContent>
           </Card>
         )}
@@ -411,8 +363,8 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
                         <Star
                           key={rating}
                           className={`h-5 w-5 ${rating <= review.rating
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
                             }`}
                         />
                       ))}

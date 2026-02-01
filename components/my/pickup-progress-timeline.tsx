@@ -29,11 +29,25 @@ interface PickupProgressTimelineProps {
   progressStage: string | null;
   showConfirmButton?: boolean;
   tripId?: string; // 실시간 위치 지도를 위한 tripId
+  // 출발지 정보
+  originLat?: number;
+  originLng?: number;
+  originText?: string;
+  // 목적지 정보
+  destinationLat?: number;
+  destinationLng?: number;
+  destinationText?: string;
 }
 
 export function PickupProgressTimeline({
   progressStage,
   tripId,
+  originLat,
+  originLng,
+  originText,
+  destinationLat,
+  destinationLng,
+  destinationText,
 }: PickupProgressTimelineProps) {
   // 기본값은 MATCHED
   const stage = progressStage || "MATCHED";
@@ -105,7 +119,17 @@ export function PickupProgressTimeline({
         <>
           <StartedBox isActive={startedActive} />
           <ArrowSeparator />
-          <MovingBox isActive={movingActive} tripId={tripId} showMap={true} />
+          <MovingBox
+            isActive={movingActive}
+            tripId={tripId}
+            showMap={true}
+            originLat={originLat}
+            originLng={originLng}
+            originText={originText}
+            destinationLat={destinationLat}
+            destinationLng={destinationLng}
+            destinationText={destinationText}
+          />
         </>
       )}
 
@@ -114,7 +138,17 @@ export function PickupProgressTimeline({
         <>
           <StartedBox isActive={false} />
           <ArrowSeparator />
-          <MovingBox isActive={false} tripId={tripId} showMap={false} />
+          <MovingBox
+            isActive={false}
+            tripId={tripId}
+            showMap={false}
+            originLat={originLat}
+            originLng={originLng}
+            originText={originText}
+            destinationLat={destinationLat}
+            destinationLng={destinationLng}
+            destinationText={destinationText}
+          />
           <ArrowSeparator />
           <ArrivedBox isActive={arrivedActive} />
         </>
