@@ -26,6 +26,7 @@ import { getTripReviews } from "@/actions/trip-reviews";
 import { getTripInvitations } from "@/actions/invitations";
 import { getUnreadCountsForInvites } from "@/actions/pickup-messages";
 import { StartTripButton } from "@/components/trips/start-trip-button";
+import { ArriveAtPickupButton } from "@/components/trips/arrive-at-pickup-button";
 import { AdminTripControls } from "@/components/admin/AdminTripControls";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
@@ -386,6 +387,24 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* 픽업 장소 도착 버튼 카드 */}
+        {!trip.is_locked && trip.status !== "EXPIRED" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>픽업 장소 도착</CardTitle>
+              <CardDescription>
+                픽업 장소에 도착하여 아이들을 만나면 이 버튼을 눌러주세요. 학부모님께 도착 알림이 전송됩니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ArriveAtPickupButton
+                tripId={tripId}
+                isArrivedAtPickup={allParticipants.some((p: any) => p.pickup_request?.progress_stage === 'AT_PICKUP')}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* 출발 버튼 카드 */}
         {!trip.is_locked && trip.status !== "EXPIRED" && (

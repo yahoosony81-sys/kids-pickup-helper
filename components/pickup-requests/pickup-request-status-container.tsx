@@ -22,7 +22,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { useClerkSupabaseClient } from '@/lib/supabase/clerk-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +70,10 @@ export function PickupRequestStatusContainer({
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Realtime 구독
+    const supabase = useClerkSupabaseClient();
+
+    // Realtime 구독 (현재 비활성화됨 - 2026-02-19)
+    /*
     useEffect(() => {
         console.log('🔄 [PickupRequestStatusContainer] Realtime 구독 시작', { requestId });
 
@@ -96,7 +99,9 @@ export function PickupRequestStatusContainer({
                     },
                     (payload) => {
                         console.log('✅ [Realtime] pickup_requests 업데이트 수신:', payload.new);
-                        setRequest(payload.new as PickupRequest);
+                        const newRequest = payload.new as PickupRequest;
+                        console.log('🔄 [Realtime] 변경된 progress_stage:', newRequest.progress_stage);
+                        setRequest(newRequest);
                         setError(null);
                     }
                 )
@@ -148,7 +153,8 @@ export function PickupRequestStatusContainer({
                 channel.unsubscribe();
             }
         };
-    }, [requestId]);
+    }, [requestId, supabase]);
+    */
 
     // 상태 정보
     const statusInfo = statusConfig[request.status] || {

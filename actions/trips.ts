@@ -24,6 +24,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClerkSupabaseClient } from "@/lib/supabase/server";
+import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { revalidatePath } from "next/cache";
 import { expireTripsIfPast, expireTripIfPast } from "@/lib/utils/trip-expiration";
 
@@ -1578,6 +1579,128 @@ export async function markPickupComplete(
     return {
       success: false,
       error: "예상치 못한 오류가 발생했습니다. 다시 시도해주세요.",
+    };
+  }
+}
+
+/**
+ * 픽업 장소 도착 처리
+ * 
+ * 제공자가 픽업 장소에 도착했음을 알리는 함수입니다.
+ * 해당 Trip에 속한 모든 픽업 요청의 progress_stage를 'AT_PICKUP'으로 업데이트합니다.
+ * 
+ * 중요: 이 작업은 여러 사용자의 데이터를 수정하므로 Service Role 클라이언트를 사용하여 RLS를 우회합니다.
+ * 권한 검사는 함수 내부에서 철저히 수행합니다.
+ * 
+ * @param tripId - Trip ID
+ */
+export async function arriveAtPickup(tripId: string) {
+  try {
+    console.group("📍 [픽업 장소 도착 처리] 시작");
+    console.log("1️⃣ Trip ID:", tripId);
+
+    // 1. 인증 확인 (Clerk)
+    const { userId } = await auth();
+    if (!userId) {
+      console.error("❌ 인증되지 않은 사용자");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+    console.log("✅ 인증 확인 완료:", { userId });
+
+    // 2. Service Role 클라이언트 생성 (RLS 우회)
+    const supabase = getServiceRoleClient();
+
+    // 3. Profile ID 조회 (제공자 확인용)
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("❌ Profile 조회 실패:", profileError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "프로필 정보를 찾을 수 없습니다.",
+      };
+    }
+
+    // 4. Trip 조회 및 소유자 확인
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("id", tripId)
+      .single();
+
+    if (tripError || !trip) {
+      console.error("❌ Trip 조회 실패:", tripError);
+      console.groupEnd();
+      return {
+        success: false,
+        error: "Trip을 찾을 수 없습니다.",
+      };
+    }
+
+    if (trip.provider_profile_id !== profile.id) {
+      console.error("❌ Trip 소유자가 아님");
+      console.groupEnd();
+      return {
+        success: false,
+        error: "권한이 없습니다.",
+      };
+    }
+
+    // 5. Trip 상태 확인
+    if (trip.status !== "OPEN") {
+      if (trip.status === "IN_PROGRESS") {
+        return { success: false, error: "이미 출발한 픽업입니다." };
+      }
+    }
+
+    // 6. 관련 픽업 요청들의 progress_stage 업데이트
+    const { data: participants, error: participantsError } = await supabase
+      .from("trip_participants")
+      .select("pickup_request_id")
+      .eq("trip_id", tripId);
+
+    if (participantsError) {
+      console.error("❌ 참여자 조회 실패:", participantsError);
+      return { success: false, error: "참여자 조회 실패" };
+    }
+
+    const pickupRequestIds = participants.map(p => p.pickup_request_id);
+
+    if (pickupRequestIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from("pickup_requests")
+        .update({ progress_stage: "AT_PICKUP" })
+        .in("id", pickupRequestIds)
+        .neq("status", "CANCELLED")
+        .neq("status", "EXPIRED");
+
+      if (updateError) {
+        console.error("❌ 픽업 요청 상태 업데이트 실패:", updateError);
+        return { success: false, error: "상태 업데이트 실패" };
+      }
+    }
+
+    console.log("✅ 픽업 장소 도착 처리 완료 (AT_PICKUP)");
+    console.groupEnd();
+
+    revalidatePath(`/trips/${tripId}`);
+
+    return { success: true };
+
+  } catch (error) {
+    console.error("❌ arriveAtPickup 에러:", error);
+    return {
+      success: false,
+      error: "예상치 못한 오류가 발생했습니다.",
     };
   }
 }

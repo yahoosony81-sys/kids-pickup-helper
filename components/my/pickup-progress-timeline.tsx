@@ -24,6 +24,7 @@ import { ArrowDown } from "lucide-react";
 import { StartedBox } from "./started-box";
 import { MovingBox } from "./moving-box";
 import { ArrivedBox } from "./arrived-box";
+import { MetAuntieBox } from "./met-auntie-box";
 
 interface PickupProgressTimelineProps {
   progressStage: string | null;
@@ -114,9 +115,16 @@ export function PickupProgressTimeline({
       {/* MATCHED: 배지만 표시 (상위 컴포넌트에서 처리) */}
       {stage === "MATCHED" && null}
 
-      {/* STARTED 또는 PICKED_UP 상태: StartedBox + MovingBox */}
+      {/* AT_PICKUP: MetAuntieBox 활성화 */}
+      {stage === "AT_PICKUP" && (
+        <MetAuntieBox isActive={true} />
+      )}
+
+      {/* STARTED 또는 PICKED_UP 상태: MetAuntieBox + StartedBox + MovingBox */}
       {(stage === "STARTED" || stage === "PICKED_UP") && (
         <>
+          <MetAuntieBox isActive={false} />
+          <ArrowSeparator />
           <StartedBox isActive={startedActive} />
           <ArrowSeparator />
           <MovingBox
@@ -133,9 +141,11 @@ export function PickupProgressTimeline({
         </>
       )}
 
-      {/* ARRIVED 상태: StartedBox + MovingBox + ArrivedBox */}
+      {/* ARRIVED 상태: MetAuntieBox + StartedBox + MovingBox + ArrivedBox */}
       {stage === "ARRIVED" && (
         <>
+          <MetAuntieBox isActive={false} />
+          <ArrowSeparator />
           <StartedBox isActive={false} />
           <ArrowSeparator />
           <MovingBox
