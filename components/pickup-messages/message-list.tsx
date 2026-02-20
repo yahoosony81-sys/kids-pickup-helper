@@ -47,6 +47,16 @@ export function MessageList({
     }
   }, [messages]);
 
+  // 디버깅용: 내 아이디와 메시지 발신자 아이디 비교 로그
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      console.log(`🔍 [디버깅] 내 Profile ID: ${currentProfileId}`);
+      console.log(`🔍 [디버깅] 마지막 메시지 Sender ID: ${lastMsg.sender_id}`);
+      console.log(`🔍 [디버깅] 일치 여부(내가 보낸 것인가?): ${lastMsg.sender_id === currentProfileId}`);
+    }
+  }, [messages, currentProfileId]);
+
   // Realtime 구독
   useEffect(() => {
     console.log("🔄 [MessageList] Realtime 구독 시작:", roomId);
@@ -102,13 +112,16 @@ export function MessageList({
             className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${bgClass}`}
+              className={`max-w-[75%] px-4 py-2 shadow-sm ${isCurrentUser
+                ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-none"
+                : "bg-muted text-foreground rounded-2xl rounded-tl-none"
+                }`}
             >
-              <p className="text-sm whitespace-pre-wrap break-words">
+              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                 {message.body}
               </p>
               <p
-                className={`text-xs mt-1 ${isCurrentUser ? "text-blue-100" : "text-muted-foreground"
+                className={`text-[10px] mt-1 text-right ${isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
                   }`}
               >
                 {formatDateTime(message.created_at)}

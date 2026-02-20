@@ -55,11 +55,10 @@ export function MessageForm({ inviteId }: MessageFormProps) {
         return;
       }
 
-      // 성공 시 입력창 비우고 페이지 새로고침
+      // 성공 시 입력창 비우기 (리얼타임으로 업데이트되므로 router.refresh() 불필요)
       setBody("");
-      router.refresh();
-      // 로딩 상태 해제 (router.refresh()는 비동기이지만 완료를 기다릴 필요 없음)
       setIsLoading(false);
+      setError(null);
     } catch (err) {
       console.error("메시지 전송 에러:", err);
       setError("예상치 못한 오류가 발생했습니다. 다시 시도해주세요.");
