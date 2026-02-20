@@ -32,9 +32,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ApproveCancelButton } from "@/components/pickup-requests/approve-cancel-button";
 import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
-import { Clock, MapPin, MessageSquare, Camera } from "lucide-react";
+import { Clock, MapPin, MessageSquare, Camera, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/utils";
+import { markStudentMetAtPickup } from "@/actions/trips";
 
 
 interface StudentCardProps {
@@ -58,7 +59,26 @@ export function StudentCard({
   arrivalPhotoUrl,
   isPending = false, // 기본값 false
 }: StudentCardProps) {
+  const [isMet, setIsMet] = useState(participant.is_met_at_pickup);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const handleArriveClick = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await markStudentMetAtPickup(tripId, participant.id);
+      if (result.success) {
+        setIsMet(true);
+      } else {
+        setError(result.error || "처리 실패");
+      }
+    } catch (err) {
+      setError("오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const pickupRequest = participant.pickup_request as any;
 
@@ -124,8 +144,34 @@ export function StudentCard({
               )}
             </div>
 
-
+            {/* 픽업 장소 도착 버튼 (매칭됨 상태이고, 아직 만나지 않았을 때) */}
+            {!isPending &&
+              pickupRequest.status !== "CANCELLED" &&
+              pickupRequest.status !== "CANCEL_REQUESTED" && (
+                <div className="ml-auto">
+                  {!isMet ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-blue-500 text-blue-600 hover:bg-blue-50"
+                      onClick={handleArriveClick}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "처리중..." : "픽업장소도착"}
+                    </Button>
+                  ) : (
+                    <span className="flex items-center text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-200">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      만남 확인
+                    </span>
+                  )}
+                </div>
+              )}
           </div>
+
+          {error && (
+            <p className="text-xs text-red-500 text-right mt-1">{error}</p>
+          )}
 
           <div className="flex items-start gap-2 text-sm">
             <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
@@ -214,6 +260,6 @@ export function StudentCard({
           )}
         </div>
       </CardContent>
-    </Card>
+    </Card >
   );
 }
