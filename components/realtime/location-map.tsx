@@ -161,12 +161,12 @@ export function LocationMap({
                 level={5}
                 onCreate={setMap}
             >
-                {/* 출발지 마커 (파란색 깃발) */}
+                {/* 출발지 마커 (빨간색 깃발 - 출발) */}
                 {originLat && originLng && (
                     <MapMarker
                         position={{ lat: originLat, lng: originLng }}
                         image={{
-                            src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/blue_b.png",
+                            src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/red_b.png",
                             size: { width: 50, height: 45 },
                         }}
                     />
@@ -184,12 +184,12 @@ export function LocationMap({
                     />
                 )}
 
-                {/* 목적지 마커 (빨간색 깃발) */}
+                {/* 목적지 마커 (파란색 깃발 - 도착) */}
                 {destinationLat && destinationLng && (
                     <MapMarker
                         position={{ lat: destinationLat, lng: destinationLng }}
                         image={{
-                            src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/red_b.png",
+                            src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/blue_b.png",
                             size: { width: 50, height: 45 },
                         }}
                     />
