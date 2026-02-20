@@ -72,89 +72,51 @@ export function PickupRequestStatusContainer({
 
     const supabase = useClerkSupabaseClient();
 
-    // Realtime 구독 (현재 비활성화됨 - 2026-02-19)
-    /*
+    // Realtime 구독
     useEffect(() => {
         console.log('🔄 [PickupRequestStatusContainer] Realtime 구독 시작', { requestId });
 
-        let retryTimeout: NodeJS.Timeout | null = null;
-        let isSubscribed = false;
+        const channel = supabase
+            .channel(`pickup_request:${requestId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'pickup_requests',
+                    filter: `id=eq.${requestId}`,
+                },
+                (payload) => {
+                    console.log('✅ [Realtime] pickup_requests 업데이트 수신:', payload.new);
+                    const newRequest = payload.new as PickupRequest;
+                    console.log('🔄 [Realtime] 변경된 progress_stage:', newRequest.progress_stage);
+                    setRequest(newRequest);
+                    setError(null);
+                }
+            )
+            .subscribe((status) => {
+                console.log('📡 [Realtime] 구독 상태:', status);
+                if (status === 'SUBSCRIBED') {
+                    setIsConnected(true);
+                    setError(null);
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('❌ [Realtime] 채널 에러');
+                    setIsConnected(false);
+                    setError('실시간 연결이 끊어졌습니다. 새로고침이 필요할 수 있습니다.');
+                } else if (status === 'TIMED_OUT') {
+                    console.error('❌ [Realtime] 연결 시간 초과');
+                    setIsConnected(false);
+                    setError('연결 시간이 초과되었습니다.');
+                } else if (status === 'CLOSED') {
+                    setIsConnected(false);
+                }
+            });
 
-        const setupChannel = () => {
-            const channel = supabase
-                .channel(`pickup_request:${requestId}`, {
-                    config: {
-                        broadcast: { self: false },
-                        presence: { key: '' },
-                    },
-                })
-                // pickup_requests 테이블 변경 감지
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'pickup_requests',
-                        filter: `id=eq.${requestId}`,
-                    },
-                    (payload) => {
-                        console.log('✅ [Realtime] pickup_requests 업데이트 수신:', payload.new);
-                        const newRequest = payload.new as PickupRequest;
-                        console.log('🔄 [Realtime] 변경된 progress_stage:', newRequest.progress_stage);
-                        setRequest(newRequest);
-                        setError(null);
-                    }
-                )
-                .subscribe((status) => {
-                    // 구독 상태 변경 추적
-                    console.log('📡 [Realtime] 구독 상태:', status);
-
-                    if (status === 'SUBSCRIBED') {
-                        console.log('✅ [Realtime] 구독 성공');
-                        isSubscribed = true;
-                        setIsConnected(true);
-                        setError(null);
-                    } else if (status === 'CHANNEL_ERROR') {
-                        console.error('❌ [Realtime] 채널 에러 - 3초 후 재연결 시도');
-                        isSubscribed = false;
-                        setIsConnected(false);
-                        setError('실시간 연결이 끊어졌습니다. 재연결 중...');
-
-                        // 3초 후 재연결 시도
-                        retryTimeout = setTimeout(() => {
-                            console.log('🔄 [Realtime] 재연결 시도 중...');
-                            channel.unsubscribe();
-                            setupChannel();
-                        }, 3000);
-                    } else if (status === 'TIMED_OUT') {
-                        console.error('❌ [Realtime] 연결 시간 초과');
-                        isSubscribed = false;
-                        setIsConnected(false);
-                        setError('실시간 연결 시간이 초과되었습니다.');
-                    } else if (status === 'CLOSED') {
-                        console.log('🔌 [Realtime] 연결 종료');
-                        isSubscribed = false;
-                        setIsConnected(false);
-                    }
-                });
-
-            return channel;
-        };
-
-        const channel = setupChannel();
-
-        // 정리(cleanup) 함수
         return () => {
             console.log('🔌 [PickupRequestStatusContainer] Realtime 구독 해제');
-            if (retryTimeout) {
-                clearTimeout(retryTimeout);
-            }
-            if (isSubscribed) {
-                channel.unsubscribe();
-            }
+            supabase.removeChannel(channel);
         };
     }, [requestId, supabase]);
-    */
 
     // 상태 정보
     const statusInfo = statusConfig[request.status] || {

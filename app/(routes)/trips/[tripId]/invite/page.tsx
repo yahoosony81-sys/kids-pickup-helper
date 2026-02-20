@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { InviteButton } from "@/components/invitations/invite-button";
 import Link from "next/link";
+import { SentInvitationsList } from "@/components/trips/sent-invitations-list";
 import { ArrowLeft, Lock, Users, MapPin, Clock, Building2, Mail } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 
@@ -189,14 +190,14 @@ export default async function InvitePage({ params }: InvitePageProps) {
   // 날짜 비교 함수: 그룹 날짜와 요청 날짜가 일치하는지 확인
   const isDateMatch = (tripDate: string | null, requestDate: string | Date): boolean => {
     if (!tripDate) return false;
-    
+
     const tripDateObj = new Date(tripDate);
     const requestDateObj = typeof requestDate === "string" ? new Date(requestDate) : requestDate;
-    
+
     // 날짜만 비교 (YYYY-MM-DD)
     const tripDateStr = tripDateObj.toISOString().split("T")[0];
     const requestDateStr = requestDateObj.toISOString().split("T")[0];
-    
+
     return tripDateStr === requestDateStr;
   };
 
@@ -377,76 +378,11 @@ export default async function InvitePage({ params }: InvitePageProps) {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {invitations.map((invitation: any) => {
-              const statusInfo =
-                invitationStatusConfig[invitation.status] ||
-                invitationStatusConfig["PENDING"];
-              const pickupRequest = invitation.pickup_request;
-
-              return (
-                <Card key={invitation.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        {pickupRequest?.pickup_time
-                          ? formatDateTime(pickupRequest.pickup_time)
-                          : "시간 정보 없음"}
-                      </CardTitle>
-                        <CardDescription className="mt-2 space-y-1">
-                          {pickupRequest && (
-                            <>
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-3 w-3" />
-                                <span>출발지: {pickupRequest.origin_text}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-3 w-3" />
-                                <span>목적지: {pickupRequest.destination_text}</span>
-                              </div>
-                            </>
-                          )}
-                          {invitation.status === "PENDING" && invitation.expires_at && (
-                            <div className="flex items-center gap-2 mt-2 text-xs">
-                              <span className="text-muted-foreground">
-                                만료 시간: {formatDateTime(invitation.expires_at)}
-                              </span>
-                            </div>
-                          )}
-                          {(invitation.status === "ACCEPTED" ||
-                            invitation.status === "REJECTED") &&
-                            invitation.responded_at && (
-                              <div className="flex items-center gap-2 mt-2 text-xs">
-                                <span className="text-muted-foreground">
-                                  응답 시간: {formatDateTime(invitation.responded_at)}
-                                </span>
-                              </div>
-                            )}
-                          {invitation.status === "EXPIRED" && invitation.expires_at && (
-                            <div className="flex items-center gap-2 mt-2 text-xs">
-                              <span className="text-muted-foreground">
-                                만료 시간: {formatDateTime(invitation.expires_at)}
-                              </span>
-                            </div>
-                          )}
-                        </CardDescription>
-                      </div>
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium ${statusInfo.className}`}
-                      >
-                        {statusInfo.label}
-                      </span>
-                    </div>
-                  </CardHeader>
-                </Card>
-              );
-            })}
-          </div>
+          <SentInvitationsList tripId={tripId} initialInvitations={invitations} />
         )}
       </div>
     </div>
   );
 }
+
 

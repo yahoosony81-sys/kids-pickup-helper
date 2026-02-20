@@ -835,7 +835,7 @@ export async function markStudentMetAtPickup(
     // 5. Participant 조회 및 소유자 확인
     const { data: participant, error: participantError } = await supabase
       .from("trip_participants")
-      .select("trip_id")
+      .select("trip_id, pickup_request_id")
       .eq("id", participantId)
       .eq("trip_id", tripId)
       .single();
@@ -866,6 +866,42 @@ export async function markStudentMetAtPickup(
       };
     }
     console.log("✅ 도착 확인 업데이트 완료");
+
+    // 6-1. Pickup Request 상태 업데이트 (AT_PICKUP)
+    // 개별 버튼 클릭 시 해당 요청자의 상태를 업데이트하여 화면에 반영
+    if (participant.pickup_request_id) {
+      // 1) 현재 상태 조회
+      const { data: requestData, error: requestError } = await supabase
+        .from("pickup_requests")
+        .select("progress_stage")
+        .eq("id", participant.pickup_request_id)
+        .single();
+
+      if (!requestError && requestData) {
+        // 2) AT_PICKUP 이전 상태인지 확인
+        // 이미 진행된 단계(AT_PICKUP 포함)라면 업데이트하지 않음
+        const advancedStages = ["AT_PICKUP", "STARTED", "PICKED_UP", "ARRIVED", "COMPLETED"];
+        const currentStage = requestData.progress_stage || "";
+
+        if (!advancedStages.includes(currentStage)) {
+          console.log(`🔄 픽업 요청 상태 업데이트 시도: ${currentStage} -> AT_PICKUP`);
+
+          const { error: reqUpdateError } = await supabase
+            .from("pickup_requests")
+            .update({ progress_stage: "AT_PICKUP" })
+            .eq("id", participant.pickup_request_id);
+
+          if (reqUpdateError) {
+            console.error("❌ 픽업 요청 상태 업데이트 실패:", reqUpdateError);
+            // 메인 로직(참여자 상태 업데이트)은 성공했으므로 에러를 반환하지는 않음
+          } else {
+            console.log("✅ 픽업 요청 상태 업데이트 완료: AT_PICKUP");
+          }
+        } else {
+          console.log(`ℹ️ 이미 진행된 상태라 업데이트 건너뜀: ${currentStage}`);
+        }
+      }
+    }
 
     // 7. 페이지 revalidate
     revalidatePath(`/trips/${tripId}`);
