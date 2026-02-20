@@ -21,7 +21,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowDown } from "lucide-react";
-import { StartedBox } from "./started-box";
+
 import { MovingBox } from "./moving-box";
 import { ArrivedBox } from "./arrived-box";
 import { MetAuntieBox } from "./met-auntie-box";
@@ -54,33 +54,18 @@ export function PickupProgressTimeline({
   const stage = progressStage || "MATCHED";
 
   // 경우1: STARTED 상태일 때 활성화/비활성화 상태
-  const [startedActive, setStartedActive] = useState(true);
   const [movingActive, setMovingActive] = useState(false);
 
   // 경우2: ARRIVED 상태일 때 활성화/비활성화 상태
   const [arrivedActive, setArrivedActive] = useState(true);
 
-  // 경우1: 제공자가 출발하기 버튼을 누른 경우
+  // 경우1: 제공자가 출발하기 버튼을 누른 경우 (STARTED)
   useEffect(() => {
-    if (stage === "STARTED") {
-      // 초기화: StartedBox 활성화, MovingBox 비활성화
-      setStartedActive(true);
-      setMovingActive(false);
-
-      // 3초 후 StartedBox 비활성화, MovingBox 활성화
-      const timer = setTimeout(() => {
-        setStartedActive(false);
-        setMovingActive(true);
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    } else if (stage === "PICKED_UP") {
-      // PICKED_UP 상태: StartedBox 비활성화, MovingBox 활성화
-      setStartedActive(false);
+    if (stage === "STARTED" || stage === "PICKED_UP") {
+      // STARTED/PICKED_UP 상태: 바로 MovingBox 활성화
       setMovingActive(true);
     } else {
       // 다른 상태로 변경되면 초기화
-      setStartedActive(false);
       setMovingActive(false);
     }
   }, [stage]);
@@ -120,12 +105,10 @@ export function PickupProgressTimeline({
         <MetAuntieBox isActive={true} />
       )}
 
-      {/* STARTED 또는 PICKED_UP 상태: MetAuntieBox + StartedBox + MovingBox */}
+      {/* STARTED 또는 PICKED_UP 상태: MetAuntieBox + MovingBox */}
       {(stage === "STARTED" || stage === "PICKED_UP") && (
         <>
           <MetAuntieBox isActive={false} />
-          <ArrowSeparator />
-          <StartedBox isActive={startedActive} />
           <ArrowSeparator />
           <MovingBox
             isActive={movingActive}
@@ -141,12 +124,10 @@ export function PickupProgressTimeline({
         </>
       )}
 
-      {/* ARRIVED 상태: MetAuntieBox + StartedBox + MovingBox + ArrivedBox */}
+      {/* ARRIVED 상태: MetAuntieBox + MovingBox + ArrivedBox */}
       {stage === "ARRIVED" && (
         <>
           <MetAuntieBox isActive={false} />
-          <ArrowSeparator />
-          <StartedBox isActive={false} />
           <ArrowSeparator />
           <MovingBox
             isActive={false}
