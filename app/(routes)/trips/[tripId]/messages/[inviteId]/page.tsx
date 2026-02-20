@@ -174,8 +174,9 @@ export default async function MessageThreadPage({
           </CardHeader>
           <CardContent>
             <MessageList
-              messages={messages}
+              initialMessages={messages}
               currentProfileId={currentProfile.id}
+              roomId={inviteId}
             />
           </CardContent>
         </Card>

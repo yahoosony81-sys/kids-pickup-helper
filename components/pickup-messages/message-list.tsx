@@ -11,7 +11,12 @@
  * - @/components/ui/card: 카드 컴포넌트
  */
 
+"use client";
+
+import { useEffect, useState, useRef } from "react";
 import { formatDateTime } from "@/lib/utils";
+import { subscribeToMessages, type MessagePayload } from "@/lib/realtime/subscriptions/messages";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 interface Message {
   id: string;
@@ -22,14 +27,55 @@ interface Message {
 }
 
 interface MessageListProps {
-  messages: Message[];
+  initialMessages: Message[];
   currentProfileId: string;
+  roomId: string; // inviteId used as roomId
 }
 
 export function MessageList({
-  messages,
+  initialMessages,
   currentProfileId,
+  roomId,
 }: MessageListProps) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 스크롤을 항상 아래로 유지
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Realtime 구독
+  useEffect(() => {
+    console.log("🔄 [MessageList] Realtime 구독 시작:", roomId);
+
+    const handleNewMessage = (payload: RealtimePostgresChangesPayload<MessagePayload>) => {
+      console.log("📨 [MessageList] 새 메시지 수신:", payload);
+      if (payload.eventType === "INSERT" && payload.new) {
+        const newMessage = payload.new;
+        // 타입 호환성 문제 해결 (MessagePayload -> Message)
+        const formattedMessage: Message = {
+          id: newMessage.id,
+          sender_id: newMessage.sender_id,
+          sender_role: newMessage.sender_role as "PROVIDER" | "REQUESTER",
+          body: newMessage.body,
+          created_at: newMessage.created_at,
+        };
+
+        setMessages((prev) => [...prev, formattedMessage]);
+      }
+    };
+
+    const { unsubscribe } = subscribeToMessages(roomId, handleNewMessage);
+
+    return () => {
+      console.log("🔌 [MessageList] Realtime 구독 해제");
+      unsubscribe();
+    };
+  }, [roomId]);
+
   if (messages.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -40,7 +86,7 @@ export function MessageList({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2" ref={scrollRef}>
       {messages.map((message) => {
         const isCurrentUser = message.sender_id === currentProfileId;
 
@@ -74,4 +120,5 @@ export function MessageList({
     </div>
   );
 }
+
 
