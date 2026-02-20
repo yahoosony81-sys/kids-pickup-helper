@@ -26,16 +26,16 @@
 "use client";
 
 import { useState } from "react";
-import { markStudentMetAtPickup } from "@/actions/trips";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ApproveCancelButton } from "@/components/pickup-requests/approve-cancel-button";
 import { UploadArrivalPhoto } from "@/components/trip-arrivals/upload-arrival-photo";
-import { Clock, MapPin, MessageSquare, Camera, CheckCircle2 } from "lucide-react";
+import { Clock, MapPin, MessageSquare, Camera } from "lucide-react";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+
 
 interface StudentCardProps {
   participant: any;
@@ -58,11 +58,7 @@ export function StudentCard({
   arrivalPhotoUrl,
   isPending = false, // 기본값 false
 }: StudentCardProps) {
-  const [isMetAtPickup, setIsMetAtPickup] = useState(
-    participant.is_met_at_pickup || false
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+
 
   const pickupRequest = participant.pickup_request as any;
 
@@ -89,34 +85,7 @@ export function StudentCard({
     );
   }
 
-  /**
-   * 픽업 장소 도착 확인 처리
-   * 
-   * TODO: 요청자 화면에 실시간 알림 전송(Firebase 또는 Socket.io)
-   * - 제공자가 확인 버튼을 클릭하면 부모님 화면에 "픽업 장소에서 만났습니다" 메시지 전송
-   */
-  const handleStudentMet = async () => {
-    if (isMetAtPickup || isLoading) return;
 
-    setIsLoading(true);
-    try {
-      const result = await markStudentMetAtPickup(tripId, participant.id);
-
-      if (result.success) {
-        setIsMetAtPickup(true);
-        // 페이지 새로고침하여 최신 상태 반영
-        router.refresh();
-      } else {
-        console.error("도착 확인 실패:", result.error);
-        // TODO: 에러 토스트 메시지 표시
-      }
-    } catch (error) {
-      console.error("도착 확인 에러:", error);
-      // TODO: 에러 토스트 메시지 표시
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <Card className={`border-l-4 ${isPending ? 'border-l-yellow-500' : 'border-l-blue-500'}`}>
@@ -131,17 +100,16 @@ export function StudentCard({
                 </span>
               ) : (
                 <span
-                  className={`px-2 py-1 rounded-md text-xs font-medium ${
-                    pickupRequest.status === "CANCEL_REQUESTED"
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                      : pickupRequest.status === "IN_PROGRESS"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : pickupRequest.status === "COMPLETED"
-                          ? "bg-gray-100 text-gray-800"
-                          : pickupRequest.status === "CANCELLED"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                            : "bg-blue-100 text-blue-800"
-                  }`}
+                  className={`px-2 py-1 rounded-md text-xs font-medium ${pickupRequest.status === "CANCEL_REQUESTED"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                    : pickupRequest.status === "IN_PROGRESS"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : pickupRequest.status === "COMPLETED"
+                        ? "bg-gray-100 text-gray-800"
+                        : pickupRequest.status === "CANCELLED"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          : "bg-blue-100 text-blue-800"
+                    }`}
                 >
                   {pickupRequest.status === "CANCEL_REQUESTED"
                     ? "취소 요청됨"
@@ -156,29 +124,7 @@ export function StudentCard({
               )}
             </div>
 
-            {/* 픽업 장소 도착 확인 버튼 (PENDING이 아니고 LOCK되지 않은 경우만) */}
-            {!isPending && !tripIsLocked && (
-              <Button
-                onClick={handleStudentMet}
-                disabled={isMetAtPickup || isLoading}
-                size="sm"
-                variant={isMetAtPickup ? "outline" : "default"}
-                className={
-                  isMetAtPickup
-                    ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
-                    : ""
-                }
-              >
-                {isMetAtPickup ? (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    확인 완료
-                  </>
-                ) : (
-                  "픽업 장소 도착"
-                )}
-              </Button>
-            )}
+
           </div>
 
           <div className="flex items-start gap-2 text-sm">
