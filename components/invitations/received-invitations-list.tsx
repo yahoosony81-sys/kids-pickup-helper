@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useClerkSupabaseClient } from "@/lib/supabase/clerk-client";
 import { InvitationCard } from "@/components/invitations/invitation-card";
-import { useRealtimeSubscription, subscribeToRequestInvitations, InvitationPayload } from "@/lib/realtime";
+import { useRealtimeSubscription, subscribeToRequesterInvitations, InvitationPayload } from "@/lib/realtime";
 import { useRouter } from "next/navigation";
 
 interface ReceivedInvitationsListProps {
@@ -25,29 +25,46 @@ export function ReceivedInvitationsList({
 
     // props가 변경되면 로컬 상태 동기화 (router.refresh() 대응)
     useEffect(() => {
+        console.log("🔄 [ReceivedInvitationsList] Props updated:", initialInvitations.length);
         setInvitations(initialInvitations);
     }, [initialInvitations]);
 
-    // Realtime 구독 (PRD Rule: invitations | INSERT | pickup_request_id=me)
+    // Realtime 구독 (PRD Rule: invitations | INSERT | requester_id=me)
     useRealtimeSubscription<InvitationPayload>(
         useCallback(
-            (handler, client) => subscribeToRequestInvitations(requestId, currentUserId, handler, client),
-            [requestId, currentUserId]
+            (handler, client) => subscribeToRequesterInvitations(currentUserId, handler, client),
+            [currentUserId]
         ),
         {
             client: supabase,
             onInsert: (payload) => {
                 const newInv = payload.new as InvitationPayload;
-                console.log("📨 [Realtime] 새 초대 도착:", newInv);
-                // 새 초대가 오면 상세 정보(제공자 프로필 등)를 포함해 다시 읽어오기 위해 refresh 시도
-                router.refresh();
+                console.log("📨 [Realtime] 새 초대 감지됨:", {
+                    invId: newInv.id,
+                    targetRequestId: requestId,
+                    receivedRequestId: newInv.pickup_request_id
+                });
+
+                // 현재 내 요청에 대한 초대인지 확인
+                if (newInv.pickup_request_id === requestId) {
+                    console.log("✅ [Realtime] 현재 요청에 대한 초대이므로 UI 갱신 시도 (router.refresh)");
+                    router.refresh();
+                } else {
+                    console.log("ℹ️ [Realtime] 다른 요청에 대한 초대임 (무시)");
+                }
             },
             onUpdate: (payload) => {
                 const updatedInv = payload.new as InvitationPayload;
-                // 상태 변경(수락/거절 등) 시 즉시 반영
-                setInvitations(prev => prev.map(inv =>
-                    inv.id === updatedInv.id ? { ...inv, status: updatedInv.status } : inv
-                ));
+                console.log("📝 [Realtime] 초대 상태 변경 감지:", {
+                    invId: updatedInv.id,
+                    status: updatedInv.status
+                });
+
+                if (updatedInv.pickup_request_id === requestId) {
+                    setInvitations(prev => prev.map(inv =>
+                        inv.id === updatedInv.id ? { ...inv, status: updatedInv.status } : inv
+                    ));
+                }
             }
         }
     );

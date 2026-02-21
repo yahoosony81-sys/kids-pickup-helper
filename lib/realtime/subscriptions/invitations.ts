@@ -18,7 +18,7 @@ export const subscribeToRequesterInvitations = (
     return subscribeToPostgresChanges<InvitationPayload>(
         channelName,
         {
-            event: "INSERT",
+            event: "*",
             schema: "public",
             table: "invitations",
             filter: `requester_profile_id=eq.${userId}`,

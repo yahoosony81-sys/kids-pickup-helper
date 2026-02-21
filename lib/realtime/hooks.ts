@@ -36,7 +36,7 @@ export function useRealtimeSubscription<T extends Record<string, any>>(
             // DELETE의 경우 new 대신 old의 id를 사용해야 함
             const record = (payload.new as any)?.id ? payload.new : payload.old;
             const eventId = (record as any)?.id || 'no-id';
-            const updatedAt = (record as any)?.updated_at || '';
+            const updatedAt = (record as any)?.updated_at || (record as any)?.created_at || '';
             const signature = `${payload.table}:${eventId}:${payload.eventType}:${updatedAt}`;
 
             if (lastEventRef.current === signature) {
