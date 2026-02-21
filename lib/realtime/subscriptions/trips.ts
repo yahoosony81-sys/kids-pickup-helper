@@ -1,6 +1,6 @@
 import { RealtimePostgresChangesPayload, SupabaseClient } from "@supabase/supabase-js";
 import { subscribeToPostgresChanges } from "../core";
-import { getTripChannel } from "../channels";
+import { getTripChannel, getMyTripsChannel } from "../channels";
 import { TripPayload } from "../types";
 import { Database } from "@/database.types";
 
@@ -36,8 +36,9 @@ export const subscribeToMyTrips = (
     handler: (payload: RealtimePostgresChangesPayload<TripPayload>) => void,
     client?: SupabaseClient<Database>
 ) => {
+    const channelName = getMyTripsChannel(profileId);
     return subscribeToPostgresChanges<TripPayload>(
-        `my-trips-${profileId}`,
+        channelName,
         {
             event: "UPDATE",
             schema: "public",

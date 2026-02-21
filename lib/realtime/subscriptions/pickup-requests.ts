@@ -1,6 +1,6 @@
 import { RealtimePostgresChangesPayload, SupabaseClient } from "@supabase/supabase-js";
 import { subscribeToPostgresChanges } from "../core";
-import { getRequestsGroupChannel, getPickupRequestChannel } from "../channels";
+import { getRequestsGroupChannel, getPickupRequestChannel, getMyRequestsChannel } from "../channels";
 import { PickupRequestPayload } from "../types";
 import { Database } from "@/database.types";
 
@@ -59,8 +59,9 @@ export const subscribeToMyPickupRequests = (
     handler: (payload: RealtimePostgresChangesPayload<PickupRequestPayload>) => void,
     client?: SupabaseClient<Database>
 ) => {
+    const channelName = getMyRequestsChannel(profileId);
     return subscribeToPostgresChanges<PickupRequestPayload>(
-        `my-requests-${profileId}`,
+        channelName,
         {
             event: "UPDATE",
             schema: "public",

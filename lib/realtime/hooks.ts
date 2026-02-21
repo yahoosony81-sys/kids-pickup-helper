@@ -27,8 +27,24 @@ export function useRealtimeSubscription<T extends Record<string, any>>(
     const handlersRef = useRef(options);
     handlersRef.current = options;
 
+    // 중복 수신 방지를 위한 Ref
+    const lastEventRef = useRef<string | null>(null);
+
     useEffect(() => {
         const handler = (payload: RealtimePostgresChangesPayload<T>) => {
+            // Payload de-duplication signature 생성
+            // DELETE의 경우 new 대신 old의 id를 사용해야 함
+            const record = (payload.new as any)?.id ? payload.new : payload.old;
+            const eventId = (record as any)?.id || 'no-id';
+            const updatedAt = (record as any)?.updated_at || '';
+            const signature = `${payload.table}:${eventId}:${payload.eventType}:${updatedAt}`;
+
+            if (lastEventRef.current === signature) {
+                console.log(`[Realtime De-dupe] Skipping duplicate event: ${signature}`);
+                return;
+            }
+            lastEventRef.current = signature;
+
             console.log(`[Realtime Event] ${payload.table}:${payload.eventType}`, payload);
 
             switch (payload.eventType) {

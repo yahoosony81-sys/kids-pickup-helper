@@ -25,3 +25,11 @@ export const getTripChannel = (tripId: string) => {
 export const getPickupRequestChannel = (requestId: string) => {
     return `pickup_requests:id-${requestId}`;
 };
+
+export const getMyRequestsChannel = (profileId: string) => {
+    return `pickup_requests:my-${profileId}`;
+};
+
+export const getMyTripsChannel = (profileId: string) => {
+    return `trips:my-${profileId}`;
+};

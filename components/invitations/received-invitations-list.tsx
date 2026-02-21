@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useClerkSupabaseClient } from "@/lib/supabase/clerk-client";
-import { AlertCircle } from "lucide-react";
 import { InvitationCard } from "@/components/invitations/invitation-card";
-import { useRealtimeSubscription, subscribeToRequesterInvitations, InvitationPayload } from "@/lib/realtime";
+import { useRealtimeSubscription, subscribeToRequestInvitations, InvitationPayload } from "@/lib/realtime";
+import { useRouter } from "next/navigation";
 
 interface ReceivedInvitationsListProps {
     requestId: string;
@@ -21,33 +21,33 @@ export function ReceivedInvitationsList({
 }: ReceivedInvitationsListProps) {
     const [invitations, setInvitations] = useState<any[]>(initialInvitations);
     const supabase = useClerkSupabaseClient();
+    const router = useRouter();
 
-    // Realtime 구독 (PRD Rule: invitations | INSERT | requester_id=me)
+    // props가 변경되면 로컬 상태 동기화 (router.refresh() 대응)
+    useEffect(() => {
+        setInvitations(initialInvitations);
+    }, [initialInvitations]);
+
+    // Realtime 구독 (PRD Rule: invitations | INSERT | pickup_request_id=me)
     useRealtimeSubscription<InvitationPayload>(
         useCallback(
-            (handler, client) => subscribeToRequesterInvitations(currentUserId, handler, client),
-            [currentUserId]
+            (handler, client) => subscribeToRequestInvitations(requestId, currentUserId, handler, client),
+            [requestId, currentUserId]
         ),
         {
             client: supabase,
             onInsert: (payload) => {
                 const newInv = payload.new as InvitationPayload;
-                // 현재 요청에 대한 초대인지 확인
-                if (newInv.pickup_request_id === requestId) {
-                    console.log("📨 [Realtime] 새 초대 도착:", newInv);
-                    // 실제 운영 시에는 여기서 프로필 데이터를 다시 불러오는 로직이 필요할 수 있음
-                    // (INSERT 페이로드에는 프로필 조인 데이터가 없으므로)
-                    // MVP에서는 일단 상태만이라도 업데이트하거나, 페이지 새로고침 유도
-                    window.location.reload(); // 프로필 데이터 조인을 위해 새로고침 (가장 간단한 MVP 접근)
-                }
+                console.log("📨 [Realtime] 새 초대 도착:", newInv);
+                // 새 초대가 오면 상세 정보(제공자 프로필 등)를 포함해 다시 읽어오기 위해 refresh 시도
+                router.refresh();
             },
             onUpdate: (payload) => {
                 const updatedInv = payload.new as InvitationPayload;
-                if (updatedInv.pickup_request_id === requestId) {
-                    setInvitations(prev => prev.map(inv =>
-                        inv.id === updatedInv.id ? { ...inv, status: updatedInv.status } : inv
-                    ));
-                }
+                // 상태 변경(수락/거절 등) 시 즉시 반영
+                setInvitations(prev => prev.map(inv =>
+                    inv.id === updatedInv.id ? { ...inv, status: updatedInv.status } : inv
+                ));
             }
         }
     );
