@@ -1,13 +1,6 @@
-// Basic payload types for Realtime events
+import { Database } from "@/database.types";
 
-export interface MessagePayload {
-    [key: string]: any; // TODO: Define specific message fields (id, content, sender_id, created_at, etc.)
-}
-
-export interface RideStatusPayload {
-    [key: string]: any; // TODO: Define specific ride status fields (status, vehicle_location, etc.)
-}
-
-export interface InvitationPayload {
-    [key: string]: any; // TODO: Define specific invitation fields (id, status, type, etc.)
-}
+export type MessagePayload = Database["public"]["Tables"]["pickup_messages"]["Row"];
+export type TripPayload = Database["public"]["Tables"]["trips"]["Row"];
+export type InvitationPayload = Database["public"]["Tables"]["invitations"]["Row"];
+export type PickupRequestPayload = Database["public"]["Tables"]["pickup_requests"]["Row"];

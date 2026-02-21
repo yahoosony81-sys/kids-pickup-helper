@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useClerkSupabaseClient } from "@/lib/supabase/clerk-client";
+import { useRealtimeSubscription, subscribeToTripInvitations, InvitationPayload } from "@/lib/realtime";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, MapPin, Mail } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
@@ -55,47 +56,32 @@ export function SentInvitationsList({
         setInvitations(initialInvitations);
     }, [initialInvitations]);
 
-    // Realtime 구독
-    useEffect(() => {
-        console.log(`🔄 [SentInvitationsList] Realtime 구독 시작 (Trip ID: ${tripId})`);
-
-        const channel = supabase
-            .channel(`trip-invitations:${tripId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "invitations",
-                    filter: `trip_id=eq.${tripId}`,
-                },
-                (payload) => {
-                    console.log("✅ [Realtime] 초대 상태 변경 감지:", payload);
-
-                    if (payload.eventType === "INSERT") {
-                        // INSERT는 page.tsx에서 router.refresh()로 처리되므로 여기서는 무시하거나,
-                        // 필요한 경우 추가 로직 구현 (단, pickup_request 정보가 없어서 바로 추가하기 어려움)
-                        // 여기서는 상태 변경(UPDATE)에 집중
-                    } else if (payload.eventType === "UPDATE") {
-                        setInvitations((prev) =>
-                            prev.map((inv) =>
-                                inv.id === payload.new.id
-                                    ? { ...inv, ...payload.new }
-                                    : inv
-                            )
-                        );
-                    }
-                }
-            )
-            .subscribe((status) => {
-                console.log(`📡 [Realtime] 구독 상태: ${status}`);
-            });
-
-        return () => {
-            console.log("🔌 [SentInvitationsList] Realtime 구독 해제");
-            supabase.removeChannel(channel);
-        };
-    }, [tripId, supabase]);
+    // Realtime 구독 (PRD Rule: 특정 Trip의 초대 상태 변경 감지)
+    useRealtimeSubscription<InvitationPayload>(
+        useCallback(
+            (handler, client) => subscribeToTripInvitations(tripId, handler, client),
+            [tripId]
+        ),
+        {
+            client: supabase,
+            onUpdate: (payload) => {
+                const updated = payload.new as InvitationPayload;
+                setInvitations((prev) =>
+                    prev.map((inv) =>
+                        inv.id === updated.id
+                            ? { ...inv, ...updated }
+                            : inv
+                    )
+                );
+            },
+            onInsert: (payload) => {
+                // 신규 초대의 경우 pickup_request 정보가 payload에 없으므로 
+                // 전체를 새로고침(page.tsx의 router.refresh())에 의존하거나, 
+                // 여기서 optimistic으로 처리하기보다 서버 동기화를 지향함.
+                // 다만 UI에 즉시 나타나게 하려면 추가 데이터 로직이 필요할 수 있음.
+            }
+        }
+    );
 
     if (invitations.length === 0) {
         return (

@@ -13,9 +13,14 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { formatDateTime } from "@/lib/utils";
-import { subscribeToMessages, type MessagePayload } from "@/lib/realtime/subscriptions/messages";
+import { useClerkSupabaseClient } from "@/lib/supabase/clerk-client";
+import {
+  useRealtimeSubscription,
+  subscribeToMessages,
+  MessagePayload
+} from "@/lib/realtime";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 interface Message {
@@ -57,15 +62,18 @@ export function MessageList({
     }
   }, [messages, currentProfileId]);
 
-  // Realtime 구독
-  useEffect(() => {
-    console.log("🔄 [MessageList] Realtime 구독 시작:", roomId);
+  const supabase = useClerkSupabaseClient();
 
-    const handleNewMessage = (payload: RealtimePostgresChangesPayload<MessagePayload>) => {
-      console.log("📨 [MessageList] 새 메시지 수신:", payload);
-      if (payload.eventType === "INSERT" && payload.new) {
-        const newMessage = payload.new;
-        // 타입 호환성 문제 해결 (MessagePayload -> Message)
+  // Realtime 구독 (PRD Rule: 채팅 메시지 실시간 수신)
+  useRealtimeSubscription<MessagePayload>(
+    useCallback(
+      (handler, client) => subscribeToMessages(roomId, handler, client),
+      [roomId]
+    ),
+    {
+      client: supabase,
+      onInsert: (payload) => {
+        const newMessage = payload.new as MessagePayload;
         const formattedMessage: Message = {
           id: newMessage.id,
           sender_id: newMessage.sender_id,
@@ -73,18 +81,10 @@ export function MessageList({
           body: newMessage.body,
           created_at: newMessage.created_at,
         };
-
         setMessages((prev) => [...prev, formattedMessage]);
       }
-    };
-
-    const { unsubscribe } = subscribeToMessages(roomId, handleNewMessage);
-
-    return () => {
-      console.log("🔌 [MessageList] Realtime 구독 해제");
-      unsubscribe();
-    };
-  }, [roomId]);
+    }
+  );
 
   if (messages.length === 0) {
     return (

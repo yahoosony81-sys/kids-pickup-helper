@@ -57,6 +57,66 @@ MVP 범위:
   `(REQUESTED → MATCHED → IN_PROGRESS → ARRIVED → COMPLETED / CANCELLED)`
 - 사진 인증, 푸시 알림, 평가
 
+----
+
+### Real-time Sync Rules (MVP v1.0 확장 요구사항)
+
+리스트 화면 및 초대/요청/Trip 상태는 다음 규칙에 따라 실시간으로 동기화된다.  
+리스트 화면은 **클라이언트 컴포넌트**로 유지하며, 각 이벤트는 Supabase Realtime 기반으로 처리한다.
+
+#### 1) 실시간 동기화 대상 화면
+- 요청자: “내 요청 목록”, “요청 상세 데이터 패널(상단 요약)”  
+- 제공자: “초대 보낸 목록”, “요청자 리스트(초대 가능 목록)”, “제공 상세 데이터 패널(상단 요약)”  
+- 공통: 초대 수신/수락/거절 상태, Trip 매칭 결과, Trip 인원수 변화
+
+#### 2) 실시간 데이터 소스 (Supabase Realtime 대상 테이블)
+- **invitations**
+  - INSERT: 새로운 초대 생성 → 요청자 화면에 즉시 표시
+  - UPDATE: `PENDING → ACCEPTED` 즉시 반영
+  - UPDATE: `PENDING → REJECTED` 즉시 반영
+  - UPDATE: 초대가 Trip capacity/LOCK에 의해 `EXPIRED`로 변경되면 즉시 반영
+
+- **pickup_requests**
+  - INSERT: 요청자가 새로운 요청을 생성하면 제공자의 요청 리스트에 실시간 반영
+  - UPDATE: `progress_stage` 변화 시 상단 요약 패널 즉시 갱신  
+    (`REQUESTED → MATCHED → IN_PROGRESS → ARRIVED → COMPLETED / CANCELLED`)
+
+- **trips**
+  - UPDATE: Trip 인원수 변화 (`accepted_count`) 즉시 반영
+  - UPDATE: 제공자가 출발 버튼 클릭 → `IN_PROGRESS` 즉시 반영
+  - UPDATE: 도착/사진 업로드 시 `ARRIVED` 실시간 반영
+
+#### 3) 실시간 이벤트 매핑 규칙
+아래 매핑 테이블에 따라 클라이언트는 해당 이벤트를 수신하면 즉시 UI를 업데이트한다.
+
+| Table | Event | 조건(filter) | 반영되는 화면 | 설명 |
+|-------|--------|----------------|-----------------------|------|
+| invitations | INSERT | requester_id=me | 요청자: 초대 수신 알림 | 새 초대 도착 즉시 표시 |
+| invitations | INSERT | provider_id=me | 제공자: 초대 보낸 목록 | 초대가 보낸 즉시 UI 반영 |
+| invitations | UPDATE | status=ACCEPTED | 제공자/요청자 모두 | “대기중 → 수락됨” 즉시 변화 |
+| invitations | UPDATE | status=REJECTED | 제공자 | “대기중 → 거절됨” 반영 |
+| pickup_requests | INSERT | N/A | 제공자 요청 리스트 | 새로운 요청 등록 즉시 반영 |
+| pickup_requests | UPDATE | progress_stage 변경 | 요청자/제공자 | 상태 타임라인 즉시 갱신 |
+| trips | UPDATE | accepted_count 변경 | 제공자/요청자 | 인원 수 변화를 실시간 표시 |
+| trips | UPDATE | status 변경 | 모두 | 출발/도착/완료 등 즉시 반영 |
+
+#### 4) Realtime 기술 요구사항
+- 클라이언트는 channel 당 1개의 subscribe만 유지한다. (중복 subscribe 금지)
+- room/channel 네이밍 규칙:  
+  - `messages:room-{invite_id}`  
+  - `invitation:user-{user_id}`  
+  - `requests:group-{school_id}`  
+- subscribe/unsubscribe는 컴포넌트 mount/unmount 생명주기에 맞춘다.
+- Mutation 발생 시 UI는 optimistic update 하지 않고, **서버 반영 후 Realtime 이벤트로 UI를 갱신**한다.
+
+#### 5) 예외 및 비기능 요구사항
+- Trip이 LOCK(IN_PROGRESS) 되면 초대 관련 실시간 흐름도 즉시 차단된다.
+- 네트워크 느림/일시 중단 시 Realtime channel 자동 재연결 허용.
+- 중복 이벤트 수신 방지를 위해 payload 기반 de-duplication 필요.
+
+
+
+
 ※ `MATCHED`는 **요청자가 제공자의 초대를 수락하여 Trip에 포함된 상태**를 의미한다.
 
 ---

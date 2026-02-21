@@ -1,15 +1,18 @@
-import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { RealtimePostgresChangesPayload, SupabaseClient } from "@supabase/supabase-js";
 import { subscribeToPostgresChanges } from "../core";
 import { getMessageChannel } from "../channels";
+import { MessagePayload } from "../types";
 import { Database } from "@/database.types";
 
-export type MessagePayload = Database["public"]["Tables"]["pickup_messages"]["Row"];
-
+/**
+ * PRD Rule: messages:room-{invite_id}
+ */
 export const subscribeToMessages = (
-    roomId: string,
-    handler: (payload: RealtimePostgresChangesPayload<MessagePayload>) => void
+    inviteId: string,
+    handler: (payload: RealtimePostgresChangesPayload<MessagePayload>) => void,
+    client?: SupabaseClient<Database>
 ) => {
-    const channelName = getMessageChannel(roomId);
+    const channelName = getMessageChannel(inviteId);
 
     return subscribeToPostgresChanges<MessagePayload>(
         channelName,
@@ -17,8 +20,9 @@ export const subscribeToMessages = (
             event: "INSERT",
             schema: "public",
             table: "pickup_messages",
-            filter: `invite_id=eq.${roomId}`,
+            filter: `invite_id=eq.${inviteId}`,
         },
-        handler
+        handler,
+        client
     );
 };

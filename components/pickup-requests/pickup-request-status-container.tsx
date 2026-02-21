@@ -1,27 +1,11 @@
 /**
  * @file components/pickup-requests/pickup-request-status-container.tsx
  * @description 픽업 요청 상태 실시간 업데이트 Container (Client Component)
- * 
- * 주요 기능:
- * 1. Supabase Realtime으로 pickup_requests 상태 구독
- * 2. progress_stage 실시간 업데이트 (STARTED → PICKED_UP → ARRIVED)
- * 3. 상태 배지, 진행 타임라인, 메시지 버튼, 취소 버튼 렌더링
- * 
- * 핵심 구현 로직:
- * - Server Component에서 초기 데이터를 props로 받음
- * - Client Component에서 useState로 상태 관리
- * - useEffect로 Realtime 구독 (컴포넌트 마운트 시)
- * - DB 변경 감지 시 setState로 즉시 UI 업데이트
- * - 컴포넌트 언마운트 시 구독 해제
- * 
- * @dependencies
- * - @supabase/supabase-js: Realtime 구독
- * - useState, useEffect: 상태 관리 및 사이드 이펙트
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useClerkSupabaseClient } from '@/lib/supabase/clerk-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +15,7 @@ import { MessageSquare, X, AlertCircle } from 'lucide-react';
 import { CancelRequestButton } from '@/components/pickup-requests/cancel-request-button';
 import { PickupProgressTimeline } from '@/components/my/pickup-progress-timeline';
 import type { Database } from '@/database.types';
+import { useRealtimeSubscription, subscribeToPickupRequestStatus } from '@/lib/realtime';
 
 type PickupRequest = Database['public']['Tables']['pickup_requests']['Row'];
 
@@ -43,7 +28,7 @@ const statusConfig: Record<
     MATCHED: { label: '매칭됨', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
     CANCEL_REQUESTED: { label: '취소 요청됨', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
     IN_PROGRESS: { label: '진행중', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-    ARRIVED: { label: '도착', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+    ARRIVED: { label: '도착', className: 'bg-purple-Purple text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
     COMPLETED: { label: '완료', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' },
     CANCELLED: { label: '취소됨', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
     EXPIRED: { label: '픽업시간 지남', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
@@ -67,56 +52,31 @@ export function PickupRequestStatusContainer({
     // 상태 관리
     const [request, setRequest] = useState<PickupRequest>(initialRequest);
     const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
-    const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const supabase = useClerkSupabaseClient();
 
-    // Realtime 구독
-    useEffect(() => {
-        console.log('🔄 [PickupRequestStatusContainer] Realtime 구독 시작', { requestId });
+    // Realtime 구독 (PRD Rule: pickup_requests | UPDATE | progress_stage 변경)
+    const { status } = useRealtimeSubscription<PickupRequest>(
+        useCallback(
+            (handler, client) => subscribeToPickupRequestStatus(requestId, handler, client),
+            [requestId]
+        ),
+        {
+            client: supabase,
+            onUpdate: (payload) => {
+                const updated = payload.new as PickupRequest;
+                console.log('✅ [Realtime] pickup_requests 업데이트 수신:', updated);
+                setRequest(updated);
+                setError(null);
+            },
+            onError: (err) => {
+                setError('실시간 연결에 문제가 발생했습니다. 페이지를 새로고침해주세요.');
+            }
+        }
+    );
 
-        const channel = supabase
-            .channel(`pickup_request:${requestId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'pickup_requests',
-                    filter: `id=eq.${requestId}`,
-                },
-                (payload) => {
-                    console.log('✅ [Realtime] pickup_requests 업데이트 수신:', payload.new);
-                    const newRequest = payload.new as PickupRequest;
-                    console.log('🔄 [Realtime] 변경된 progress_stage:', newRequest.progress_stage);
-                    setRequest(newRequest);
-                    setError(null);
-                }
-            )
-            .subscribe((status) => {
-                console.log('📡 [Realtime] 구독 상태:', status);
-                if (status === 'SUBSCRIBED') {
-                    setIsConnected(true);
-                    setError(null);
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error('❌ [Realtime] 채널 에러');
-                    setIsConnected(false);
-                    setError('실시간 연결이 끊어졌습니다. 새로고침이 필요할 수 있습니다.');
-                } else if (status === 'TIMED_OUT') {
-                    console.error('❌ [Realtime] 연결 시간 초과');
-                    setIsConnected(false);
-                    setError('연결 시간이 초과되었습니다.');
-                } else if (status === 'CLOSED') {
-                    setIsConnected(false);
-                }
-            });
-
-        return () => {
-            console.log('🔌 [PickupRequestStatusContainer] Realtime 구독 해제');
-            supabase.removeChannel(channel);
-        };
-    }, [requestId, supabase]);
+    const isConnected = status === 'SUBSCRIBED';
 
     // 상태 정보
     const statusInfo = statusConfig[request.status] || {
@@ -158,8 +118,6 @@ export function PickupRequestStatusContainer({
                     Realtime: {isConnected ? '🟢 연결됨' : '🔴 연결 안 됨'}
                 </div>
             )}
-
-            {/* 상태 배지 (헤더에 표시되므로 여기서는 생략 가능) */}
 
             {/* 메시지 버튼 */}
             {acceptedInvitationId && tripId && !isExpired && (
@@ -208,7 +166,6 @@ export function PickupRequestStatusContainer({
             {/* 취소 버튼 */}
             {!isExpired && (
                 <div className="mb-6">
-                    {/* 취소 가능한 경우 (REQUESTED, MATCHED) 취소 페이지로 이동 */}
                     {(request.status === 'REQUESTED' || request.status === 'MATCHED') && (
                         <Button asChild variant="destructive" className="w-full">
                             <Link href={`/pickup-requests/${request.id}/cancel`}>
@@ -217,7 +174,6 @@ export function PickupRequestStatusContainer({
                             </Link>
                         </Button>
                     )}
-                    {/* 기존 취소 요청 버튼 (CANCEL_REQUESTED 상태용) */}
                     {request.status !== 'REQUESTED' && request.status !== 'MATCHED' && (
                         <CancelRequestButton
                             pickupRequestId={request.id}

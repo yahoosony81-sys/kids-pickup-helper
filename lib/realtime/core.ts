@@ -1,5 +1,6 @@
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { supabase } from '../supabase/client';
+import { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient } from '@supabase/supabase-js';
+import { supabase as defaultSupabase } from '../supabase/client';
+import { Database } from '@/database.types';
 
 export interface SubscriptionResult {
     channel: RealtimeChannel;
@@ -7,17 +8,13 @@ export interface SubscriptionResult {
 }
 
 /**
- * Returns the raw Supabase Realtime client.
- */
-export const getRealtimeClient = () => {
-    return supabase.realtime;
-};
-
-/**
  * Creates a new Realtime channel with the given name.
  */
-export const createChannel = (name: string): RealtimeChannel => {
-    return supabase.channel(name);
+export const createChannel = (
+    name: string,
+    client: SupabaseClient<Database> = defaultSupabase as any
+): RealtimeChannel => {
+    return client.channel(name);
 };
 
 /**
@@ -32,9 +29,10 @@ export const subscribeToPostgresChanges = <T extends Record<string, any>>(
         table: string;
         filter?: string;
     },
-    handler: (payload: RealtimePostgresChangesPayload<T>) => void
+    handler: (payload: RealtimePostgresChangesPayload<T>) => void,
+    client: SupabaseClient<Database> = defaultSupabase as any
 ): SubscriptionResult => {
-    const channel = createChannel(channelName);
+    const channel = createChannel(channelName, client);
 
     const filterBase = {
         schema: options.schema,
@@ -42,8 +40,6 @@ export const subscribeToPostgresChanges = <T extends Record<string, any>>(
         filter: options.filter,
     };
 
-    // We strictly match the event type to satisfy TypeScript overload resolution
-    // which sometimes fails with union types in filter objects.
     switch (options.event) {
         case 'INSERT':
             channel.on('postgres_changes', { event: 'INSERT', ...filterBase }, handler);
