@@ -38,6 +38,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock, Users, Clock, Calendar, Camera, CheckCircle2, Plus, Star } from "lucide-react";
 import { PageNavActions } from "@/components/page-nav-actions";
 import { notFound } from "next/navigation";
+import { TripStatusContainer } from "@/components/trips/trip-status-container";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -253,76 +254,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       )}
 
       <div className="space-y-6">
-        {/* Trip 정보 카드 */}
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-2xl">픽업제공 상세</CardTitle>
-                <CardDescription className="mt-1">
-                  픽업제공 #{trip.id.slice(0, 8)}
-                </CardDescription>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-md text-sm font-medium ${statusInfo.className}`}
-              >
-                {statusInfo.label}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">수용 인원:</span>
-                  <span className="font-medium">
-                    {participantCount} / {trip.capacity}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  {trip.is_locked ? (
-                    <>
-                      <Lock className="h-4 w-4 text-yellow-600" />
-                      <span className="text-yellow-600 font-medium">LOCK됨</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4 text-green-600" />
-                      <span className="text-green-600 font-medium">UNLOCK</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {trip.start_at && (
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">출발 시간:</span>
-                <span className="font-medium">{formatDateTime(trip.start_at)}</span>
-              </div>
-            )}
-
-            {trip.arrived_at && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">도착 시간:</span>
-                <span className="font-medium">{formatDateTime(trip.arrived_at)}</span>
-              </div>
-            )}
-
-            {trip.completed_at && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">완료 시간:</span>
-                <span className="font-medium">{formatDateTime(trip.completed_at)}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Trip 정보 카드 (Realtime) */}
+        <TripStatusContainer
+          initialTrip={trip}
+          tripId={tripId}
+          participantCount={participantCount}
+        />
 
         {/* 참여자 목록 카드 */}
         <Card>

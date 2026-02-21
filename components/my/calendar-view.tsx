@@ -35,6 +35,7 @@ export interface CalendarViewProps {
   mode: CalendarViewMode;
   initialMonth?: Date | string;
   initialSelectedDate?: Date | string | null;
+  profileId?: string;
 }
 
 /**
@@ -43,7 +44,8 @@ export interface CalendarViewProps {
 export function CalendarView({
   mode,
   initialMonth,
-  initialSelectedDate
+  initialSelectedDate,
+  profileId
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState<Date>(
     initialMonth ? new Date(initialMonth) : new Date()
@@ -116,6 +118,7 @@ export function CalendarView({
         onOpenChange={setIsDrawerOpen}
         date={selectedDate}
         mode={mode}
+        profileId={profileId}
       />
     </div>
   );

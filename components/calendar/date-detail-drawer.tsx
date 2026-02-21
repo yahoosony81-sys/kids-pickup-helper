@@ -20,7 +20,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,15 @@ import Link from "next/link";
 import { getMyPickupRequests } from "@/actions/pickup-requests";
 import { getMyTripsIncludingTest } from "@/actions/trips";
 
+import {
+  useRealtimeSubscription,
+  subscribeToMyPickupRequests,
+  subscribeToMyTrips,
+  PickupRequestPayload,
+  TripPayload
+} from "@/lib/realtime";
+import { useClerkSupabaseClient } from "@/lib/supabase/clerk-client";
+
 export type DateDetailMode = "requests" | "provides";
 
 export interface DateDetailDrawerProps {
@@ -43,6 +52,7 @@ export interface DateDetailDrawerProps {
   onOpenChange: (open: boolean) => void;
   date: Date | null;
   mode: DateDetailMode;
+  profileId?: string;
 }
 
 // 상태별 배지 스타일 (요청자)
@@ -127,11 +137,52 @@ export function DateDetailDrawer({
   onOpenChange,
   date,
   mode,
+  profileId,
 }: DateDetailDrawerProps) {
   const [requests, setRequests] = useState<any[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const supabase = useClerkSupabaseClient();
+
+  // Realtime 구독 (PRD Rule: pickup_requests | UPDATE | progress_stage 변경)
+  useRealtimeSubscription<PickupRequestPayload>(
+    useCallback(
+      (handler, client) => {
+        if (!profileId || mode !== "requests") return { unsubscribe: async () => "ok" } as any;
+        return subscribeToMyPickupRequests(profileId, handler, client);
+      },
+      [profileId, mode]
+    ),
+    {
+      client: supabase,
+      onUpdate: (payload) => {
+        const updated = payload.new as PickupRequestPayload;
+        if (!updated.id) return;
+        setRequests(prev => prev.map(req => req.id === updated.id ? { ...req, ...updated } : req));
+      }
+    }
+  );
+
+  // Realtime 구독 (PRD Rule: trips | UPDATE | status 변경)
+  useRealtimeSubscription<TripPayload>(
+    useCallback(
+      (handler, client) => {
+        if (!profileId || mode !== "provides") return { unsubscribe: async () => "ok" } as any;
+        return subscribeToMyTrips(profileId, handler, client);
+      },
+      [profileId, mode]
+    ),
+    {
+      client: supabase,
+      onUpdate: (payload) => {
+        const updated = payload.new as TripPayload;
+        if (!updated.id) return;
+        setTrips(prev => prev.map(trip => trip.id === updated.id ? { ...trip, ...updated } : trip));
+      }
+    }
+  );
 
 
   // 날짜가 같은지 확인 (시간 제외)

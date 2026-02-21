@@ -29,7 +29,7 @@ export const subscribeToNewPickupRequests = (
 
 /**
  * PRD Rule: pickup_requests | UPDATE | progress_stage 변경
- * 요청자/제공자 상세화면: 상태 타임라인 즉시 갱신
+ * 특정 요청의 상태 변경 구독
  */
 export const subscribeToPickupRequestStatus = (
     requestId: string,
@@ -45,6 +45,27 @@ export const subscribeToPickupRequestStatus = (
             schema: "public",
             table: "pickup_requests",
             filter: `id=eq.${requestId}`,
+        },
+        handler,
+        client
+    );
+};
+
+/**
+ * 내 픽업 요청들의 상태 변경 구독
+ */
+export const subscribeToMyPickupRequests = (
+    profileId: string,
+    handler: (payload: RealtimePostgresChangesPayload<PickupRequestPayload>) => void,
+    client?: SupabaseClient<Database>
+) => {
+    return subscribeToPostgresChanges<PickupRequestPayload>(
+        `my-requests-${profileId}`,
+        {
+            event: "UPDATE",
+            schema: "public",
+            table: "pickup_requests",
+            filter: `requester_profile_id=eq.${profileId}`,
         },
         handler,
         client

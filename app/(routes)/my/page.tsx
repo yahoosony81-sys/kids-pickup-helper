@@ -29,6 +29,9 @@ import { SignOutButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
+import { auth } from "@clerk/nextjs/server";
+import { createClerkSupabaseClient } from "@/lib/supabase/server";
+
 export const dynamic = "force-dynamic";
 
 interface MyPageProps {
@@ -42,6 +45,16 @@ interface MyPageProps {
 export default async function MyPage({ searchParams }: MyPageProps) {
   const params = await searchParams;
   const { month, date, tab } = params;
+
+  // Profile ID 조회
+  const { userId } = await auth();
+  const supabaseServer = createClerkSupabaseClient();
+  const { data: profile } = await supabaseServer
+    .from("profiles")
+    .select("id")
+    .eq("clerk_user_id", userId as string)
+    .single();
+  const profileId = profile?.id;
   // 진행중 픽업 요청 조회 (REQUESTED, MATCHED, IN_PROGRESS만, EXPIRED 제외)
   const requestsResult = await getMyPickupRequests();
   const ongoingRequests = requestsResult.success
@@ -124,6 +137,7 @@ export default async function MyPage({ searchParams }: MyPageProps) {
             mode="requests"
             initialMonth={initialMonth}
             initialSelectedDate={initialSelectedDate}
+            profileId={profileId}
           />
         </TabsContent>
         <TabsContent value="trips" className="mt-6">
@@ -131,6 +145,7 @@ export default async function MyPage({ searchParams }: MyPageProps) {
             mode="provides"
             initialMonth={initialMonth}
             initialSelectedDate={initialSelectedDate}
+            profileId={profileId}
           />
         </TabsContent>
       </Tabs>

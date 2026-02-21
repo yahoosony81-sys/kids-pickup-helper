@@ -8,58 +8,57 @@ export interface SubscriptionResult {
 }
 
 /**
- * Creates a new Realtime channel with the given name.
+ * createClientRealtime
+ * 기본 supabase 클라이언트를 반환하거나 전달받은 클라이언트를 그대로 반환합니다.
+ * (Clerk 연동 클라이언트 등을 통합 관리하기 위함)
  */
-export const createChannel = (
-    name: string,
+export const createClientRealtime = (
     client: SupabaseClient<Database> = defaultSupabase as any
-): RealtimeChannel => {
-    return client.channel(name);
+): SupabaseClient<Database> => {
+    return client;
 };
 
 /**
- * Helper to subscribe to Postgres changes on a specific channel.
- * Returns the channel instance and an unsubscribe function for cleanup.
+ * subscribeToChannel
+ * 특정 테이블의 변화를 감지하는 채널을 생성하고 구독합니다.
+ * PRD 요구사항에 따라 1개 채널 당 1개의 subscribe를 권장하므로 channelName을 명시적으로 관리합니다.
  */
-export const subscribeToPostgresChanges = <T extends Record<string, any>>(
+export const subscribeToChannel = <T extends Record<string, any>>(
     channelName: string,
     options: {
         event: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
-        schema: string;
         table: string;
         filter?: string;
+        schema?: string;
     },
     handler: (payload: RealtimePostgresChangesPayload<T>) => void,
     client: SupabaseClient<Database> = defaultSupabase as any
 ): SubscriptionResult => {
-    const channel = createChannel(channelName, client);
+    const supabase = createClientRealtime(client);
+    const channel = supabase.channel(channelName);
 
     const filterBase = {
-        schema: options.schema,
+        event: options.event,
+        schema: options.schema || 'public',
         table: options.table,
         filter: options.filter,
     };
 
-    switch (options.event) {
-        case 'INSERT':
-            channel.on('postgres_changes', { event: 'INSERT', ...filterBase }, handler);
-            break;
-        case 'UPDATE':
-            channel.on('postgres_changes', { event: 'UPDATE', ...filterBase }, handler);
-            break;
-        case 'DELETE':
-            channel.on('postgres_changes', { event: 'DELETE', ...filterBase }, handler);
-            break;
-        case '*':
-            channel.on('postgres_changes', { event: '*', ...filterBase }, handler);
-            break;
-    }
+    channel.on('postgres_changes' as any, filterBase as any, handler);
+    channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+            console.log(`[Realtime] Subscribed to ${channelName}`);
+        }
+    });
 
-    channel.subscribe();
-
-    const unsubscribe = async () => {
-        return channel.unsubscribe();
+    return {
+        channel,
+        unsubscribe: () => channel.unsubscribe(),
     };
-
-    return { channel, unsubscribe };
 };
+
+/**
+ * Legacy: For backward compatibility with existing code
+ */
+export const subscribeToPostgresChanges = subscribeToChannel;
+export const createChannel = (name: string, client?: any) => createClientRealtime(client).channel(name);

@@ -27,3 +27,24 @@ export const subscribeToTripChanges = (
         client
     );
 };
+
+/**
+ * 내 픽업 제공(Trips)의 상태 변경 구독
+ */
+export const subscribeToMyTrips = (
+    profileId: string,
+    handler: (payload: RealtimePostgresChangesPayload<TripPayload>) => void,
+    client?: SupabaseClient<Database>
+) => {
+    return subscribeToPostgresChanges<TripPayload>(
+        `my-trips-${profileId}`,
+        {
+            event: "UPDATE",
+            schema: "public",
+            table: "trips",
+            filter: `provider_profile_id=eq.${profileId}`,
+        },
+        handler,
+        client
+    );
+};
